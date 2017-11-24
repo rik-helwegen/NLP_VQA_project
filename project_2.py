@@ -152,17 +152,18 @@ test_data = np.asarray(test_data)
 class CBOW(nn.Module):
     def __init__(self, vocab_size, embedding_dim, image_features_dim, output_dim):
         super(CBOW, self).__init__()
-        self.linear1 = nn.Linear(vocab_size, embedding_dim)
-        self.linear2 = nn.Linear(embedding_dim + image_features_dim, output_dim)
+        self.embedding = nn.Linear(vocab_size, embedding_dim)
+        self.embedding_output = nn.Linear(embedding_dim, output_dim)
+        self.img_output = nn.Linear(image_features_dim, output_dim)
 
     def forward(self, question_input, image_input):
-        embeds = self.linear1(question_input)
+        embeds = self.embedding(question_input)
         # concatanate embeddings with the image features
-        concatenation = torch.cat((embeds, image_input), 1)
-        output = self.linear2(concatenation)
-        # TODO do we need a softmax layer?
-        #output = nn.Softmax(output)
-        return output
+        embedding_output = self.embedding_output(embeds)
+        img_output = self.img_output(image_input)
+        addition = torch.add(embedding_output, img_output)
+
+        return addition
 
 
 model = CBOW(nwords, 2000, nfeatures, ntags)
@@ -192,12 +193,17 @@ def evaluate(model, test_data):
 
 
 optimizer = optim.Adam(model.parameters(), lr = 0.0001)
-batch_size = 100
+# different layers must use different learning rates
+# optimizer = optim.Adam([
+#     {'params': model.embedding.parameters(), 'lr': 1e-1}
+#     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
+# ])
+batch_size = 50
 
 # TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
 # TODO loss doesn't go down every iteration, but in general it does.
 # with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
-for ITER in range(500):
+for ITER in range(50):
     train_loss = 0.0
     start = time.time()
 
