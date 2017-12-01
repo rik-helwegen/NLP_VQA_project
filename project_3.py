@@ -35,10 +35,17 @@ with open("data_processed/x_train.pkl", "rb") as fp:   #Pickling
     x_train = pickle.load(fp)
 with open("data_processed/y_train.pkl", "rb") as fp:   #Pickling
     y_train = pickle.load(fp)
+
 with open("data_processed/x_test.pkl", "rb") as fp:   #Pickling
     x_test = pickle.load(fp)
 with open("data_processed/y_test.pkl", "rb") as fp:   #Pickling
     y_test = pickle.load(fp)
+
+with open("data_processed/x_validation.pkl", "rb") as fp:   #Pickling
+    x_validation = pickle.load(fp)
+with open("data_processed/y_validation.pkl", "rb") as fp:   #Pickling
+    y_validation = pickle.load(fp)
+
 with open("data_processed/w2i.pkl", "rb") as fp:   #Pickling
     w2i = pickle.load(fp)
 with open("data_processed/t2i.pkl", "rb") as fp:   #Pickling
@@ -74,15 +81,18 @@ def one_hot_encoding(data):
 training_size = 1000
 # test_size = len(x_test)
 test_size = 100
+# validation test_size
+validation_size = 200
+
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
+x_validation = x_validation[:validation_size]
 
 # for ease, separate the data
 # training
 answers_train = y_train[:training_size]
 img_ids_train = [x[0] for x in x_train]
 questions_train = [x[1] for x in x_train]
-
 # encodes to one hot vector
 questions_train = one_hot_encoding(questions_train)
 
@@ -90,7 +100,15 @@ questions_train = one_hot_encoding(questions_train)
 answers_test = y_test[:test_size]
 img_ids_test = [x[0] for x in x_test]
 questions_test = [x[1] for x in x_test]
+# encodes to one hot vector
 questions_test = one_hot_encoding(questions_test)
+
+# test
+answers_validation = y_validation[]
+img_ids_validation = [x[0] for x in x_validation]
+questions_validation = [x[1] for x in x_validation]
+# encodes to one hot vector
+questions_validation = one_hot_encoding(questions_validation)
 
 # combine questions and answers to [ [question[i], answer[i]], img_id[i]] (for every i)
 training_data = [[questions_train[i], answers_train[i], img_ids_train[i]] for i in range(len(questions_train))]
@@ -98,6 +116,9 @@ training_data = np.asarray(training_data)
 
 test_data = [[questions_test[i], answers_test[i], img_ids_test[i]] for i in range(len(questions_test))]
 test_data = np.asarray(test_data)
+
+validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
+validation_data = np.asarray(validation_data)
 
 
 # neural network
@@ -184,7 +205,7 @@ for ITER in range(epochs):
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
         batch = training_data[i:i + minibatch_size]
-        y_train_mini = y_train[i:i + minibatch_size]
+
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]
         input_img_ids = [x[2] for x in batch]
