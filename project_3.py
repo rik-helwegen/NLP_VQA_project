@@ -126,6 +126,7 @@ print(model)
 def evaluate(model, test_data):
     """Evaluate a model on a data set."""
     eval_loss = 0.0
+    correct = 0.
 
     # forward with batch size = 1
     for i in range(len(test_data)):
@@ -146,7 +147,12 @@ def evaluate(model, test_data):
         eval_output = loss(eval_scores, eval_target)
         eval_loss += eval_output.data[0]
 
-    return eval_loss, eval_loss / len(test_data)
+        # measure accuracy of prediction
+        predict = eval_scores.data.numpy().argmax(axis=1)[0]
+        if predict == answer:
+            correct += 1
+
+    return correct/len(test_data), eval_loss/len(test_data)
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -163,7 +169,7 @@ epochs = 10
 test_update = 1
 # create zero vectors to save progress
 learning_train = np.zeros([epochs, 2])
-learning_test = np.zeros([int(math.floor((epochs-1)/test_update))+1, 2])
+learning_test = np.zeros([int(math.floor((epochs-1)/test_update))+1, 3])
 
 for ITER in range(epochs):
     train_loss = 0.0
@@ -202,19 +208,20 @@ for ITER in range(epochs):
 
     # evaluate, only evaluate every 'test_update' iterations, to save time
     if ITER % test_update == 0:
-        eval_loss, avg_eval_loss = evaluate(model, test_data)
-        print("iter %r: test loss=%.6f, average test loss=%.6f" % (ITER, eval_loss, avg_eval_loss))
-        learning_test[int(ITER/test_update), :] = [ITER, avg_eval_loss]
+        acc, avg_eval_loss = evaluate(model, test_data)
+        print("iter %r: test loss/sent %.6f, accuracy=%.6f" % (ITER, avg_eval_loss, acc))
+        learning_test[int(ITER/test_update), :] = [ITER, avg_eval_loss, acc]
 
     learning_train[ITER, :] = [ITER, train_loss/len(training_data)]
 
 
 plt.close('all')
-f, axarr = plt.subplots(2, sharex=True)
+f, axarr = plt.subplots(3, sharex=True)
 axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
 axarr[0].legend()
 axarr[1].plot(learning_test[:, 0], learning_test[:, 1], label='Average-test-loss')
-axarr[1].plot(learning_test[:, 0], learning_test[:, 1], 'ro')
 axarr[1].legend()
-axarr[1].set_xlabel('Iterations')
+axarr[2].plot(learning_test[:, 0], learning_test[:, 2], 'r-', label='Accuracy')
+axarr[2].legend()
+axarr[2].set_xlabel('Iterations')
 plt.show()
