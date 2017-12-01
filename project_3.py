@@ -110,7 +110,6 @@ class CBOW(nn.Module):
 
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
-        # concatanate embeddings with the image features
         embedding_output = self.embedding_output(embeds)
         img_output = self.img_output(image_input)
         addition = torch.add(embedding_output, img_output)

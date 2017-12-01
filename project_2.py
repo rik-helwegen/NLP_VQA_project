@@ -122,8 +122,8 @@ def one_hot_encoding(data):
     return embeddings
 
 # to speed-up training, max = len(x_train)
-training_size = len(x_train)
-test_size = len(x_test)
+training_size = 1000
+test_size = 100
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
 
@@ -198,39 +198,43 @@ optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 #     {'params': model.embedding.parameters(), 'lr': 1e-1}
 #     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
 # ])
-batch_size = 50
+minibatch_size = 50
 
 # TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
 # TODO loss doesn't go down every iteration, but in general it does.
 # with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
-for ITER in range(50):
+for ITER in range(3):
     train_loss = 0.0
     start = time.time()
 
-    # make a batch by sampling randomly and split up in input and targets
-    batch = training_data[np.random.choice(training_data.shape[0], batch_size, replace=False), :]
-    input_questions = [x[0] for x in batch]
-    input_targets = [x[1] for x in batch]
-    input_img_ids = [x[2] for x in batch]
+    # split up data in mini-batches
+    for i in range(0, training_data.shape[0], minibatch_size):
+        batch = training_data[i:i + minibatch_size]
+        y_train_mini = y_train[i:i + minibatch_size]
+        input_questions = [x[0] for x in batch]
+        input_targets = [x[1] for x in batch]
+        input_img_ids = [x[2] for x in batch]
 
-    # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
-    images_input = [ np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
+        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
+        images_input = [ np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
-    # forward pass
-    question_tensor = Variable(torch.FloatTensor(input_questions))
-    image_features_tensor = Variable(torch.FloatTensor(images_input))
-    scores = model(question_tensor, image_features_tensor)
-    loss = nn.CrossEntropyLoss()
-    target = Variable(torch.LongTensor(input_targets))
-    output = loss(scores, target)
-    train_loss += output.data[0]
+        # forward pass
+        question_tensor = Variable(torch.FloatTensor(input_questions))
+        image_features_tensor = Variable(torch.FloatTensor(images_input))
+        scores = model(question_tensor, image_features_tensor)
+        print(scores)
+        loss = nn.CrossEntropyLoss()
+        target = Variable(torch.LongTensor(input_targets))
+        output = loss(scores, target)
+        print(output)
+        train_loss += output.data[0]
 
-    # backward pass
-    model.zero_grad()
-    output.backward()
+        # backward pass
+        model.zero_grad()
+        output.backward()
 
-    # update weights
-    optimizer.step()
+        # update weights
+        optimizer.step()
 
     print("iter %r: train loss/sent %.6f, time=%.2fs" %
           (ITER, train_loss/len(training_data), time.time() - start))
