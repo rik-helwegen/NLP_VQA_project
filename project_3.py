@@ -71,7 +71,7 @@ def one_hot_encoding(data):
 
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
-training_size = 1000
+training_size = 3000
 # test_size = len(x_test)
 test_size = 100
 x_train = x_train[:training_size]
@@ -107,6 +107,7 @@ class CBOW(nn.Module):
         self.embedding = nn.Linear(vocab_size, embedding_dim)
         self.embedding_output = nn.Linear(embedding_dim, output_dim)
         self.img_output = nn.Linear(image_features_dim, output_dim)
+        self.softmax = nn.Softmax()
 
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
@@ -114,7 +115,7 @@ class CBOW(nn.Module):
         # img_output = self.img_output(image_input)
         # addition = torch.add(embedding_output, img_output)
 
-        return embedding_output
+        return self.softmax(embedding_output)
 
 
 model = CBOW(nwords, 2000, nfeatures, ntags)
@@ -122,11 +123,10 @@ model = CBOW(nwords, 2000, nfeatures, ntags)
 print(model)
 
 
-# # TODO Question: Do we need to evaluate the whole test_data as one batch?
 def evaluate(model, test_data):
     """Evaluate a model on a data set."""
     eval_loss = 0.0
-    correct = 0.
+    correct = 0.0
 
     # forward with batch size = 1
     for i in range(len(test_data)):
@@ -152,7 +152,7 @@ def evaluate(model, test_data):
         if predict == answer:
             correct += 1
 
-    return correct/len(test_data), eval_loss/len(test_data)
+    return correct/len(test_data) * 100, eval_loss/len(test_data)
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
@@ -163,14 +163,14 @@ optimizer = optim.Adam(model.parameters(), lr=0.0001)
 # ])
 
 # TODO look into batch normalisation
-minibatch_size = 50
+minibatch_size = 35
 
 # TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
 # TODO loss doesn't go down every iteration, but in general it does.
 # with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
 
 # Number of epochs
-epochs = 10
+epochs = 50
 # after which number of epochs we want a evaluation:
 test_update = 1
 # create zero vectors to save progress
@@ -183,8 +183,8 @@ for ITER in range(epochs):
 
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
+        np.random.shuffle(training_data)
         batch = training_data[i:i + minibatch_size]
-        y_train_mini = y_train[i:i + minibatch_size]
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]
         input_img_ids = [x[2] for x in batch]
