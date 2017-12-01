@@ -102,9 +102,9 @@ with open("data_processed/y_test.pkl", "wb") as fp:   #Pickling
 
 # dump validation set
 with open("data_processed/x_validation.pkl", "wb") as fp:   #Pickling
-    pickle.dump(x_test, fp)
+    pickle.dump(x_validation, fp)
 with open("data_processed/y_validation.pkl", "wb") as fp:   #Pickling
-    pickle.dump(y_test, fp)
+    pickle.dump(y_validation, fp)
 
 # dump dictionaries
 with open("data_processed/w2i.pkl", "wb") as fp:   #Pickling
