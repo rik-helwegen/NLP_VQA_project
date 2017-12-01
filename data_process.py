@@ -44,8 +44,6 @@ def makeList(freq):
             removeWords.append(combo[0])
     return removeWords
 
-
-
 # to read in the questions
 def read_dataset_questions(filename):
     with open(filename, 'r') as file:
@@ -87,8 +85,8 @@ w2i = defaultdict(lambda: UNK, w2i)
 x_test = list(read_dataset_questions('data/vqa_questions_test.txt'))
 y_test = list(read_dataset_answers('data/vqa_annotatons_test.txt'))
 
-x_validation = list(read_dataset_questions('data/vqa_questions_validation.txt'))
-y_validation = list(read_dataset_answers('data/vqa_annotatons_validation.txt'))
+x_validation = list(read_dataset_questions('data/vqa_questions_valid.txt'))
+y_validation = list(read_dataset_answers('data/vqa_annotatons_valid.txt'))
 
 #dump training set
 with open("data_processed/x_train.pkl", "wb") as fp:   #Pickling
