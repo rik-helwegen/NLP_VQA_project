@@ -111,10 +111,10 @@ class CBOW(nn.Module):
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
         embedding_output = self.embedding_output(embeds)
-        img_output = self.img_output(image_input)
-        addition = torch.add(embedding_output, img_output)
+        # img_output = self.img_output(image_input)
+        # addition = torch.add(embedding_output, img_output)
 
-        return addition
+        return embedding_output
 
 
 model = CBOW(nwords, 2000, nfeatures, ntags)
@@ -150,6 +150,12 @@ def evaluate(model, test_data):
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
+# different layers must use different learning rates
+# optimizer = optim.Adam([
+#     {'params': model.embedding.parameters(), 'lr': 1e-1}
+#     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
+# ])
+
 # TODO look into batch normalisation
 minibatch_size = 50
 
