@@ -81,25 +81,35 @@ remove = makeList(1)
 # loading the word data
 x_train = list(read_dataset_questions('data/vqa_questions_train.txt'))
 y_train = list(read_dataset_answers('data/vqa_annotatons_train.txt'))
+
 w2i = defaultdict(lambda: UNK, w2i)
+
 x_test = list(read_dataset_questions('data/vqa_questions_test.txt'))
 y_test = list(read_dataset_answers('data/vqa_annotatons_test.txt'))
 
+x_validation = list(read_dataset_questions('data/vqa_questions_validation.txt'))
+y_validation = list(read_dataset_answers('data/vqa_annotatons_validation.txt'))
 
+#dump training set
 with open("data_processed/x_train.pkl", "wb") as fp:   #Pickling
     pickle.dump(x_train, fp)
-
 with open("data_processed/y_train.pkl", "wb") as fp:   #Pickling
     pickle.dump(y_train, fp)
 
+# dump test set
 with open("data_processed/x_test.pkl", "wb") as fp:   #Pickling
     pickle.dump(x_test, fp)
-
 with open("data_processed/y_test.pkl", "wb") as fp:   #Pickling
     pickle.dump(y_test, fp)
 
+# dump validation set
+with open("data_processed/x_validation.pkl", "wb") as fp:   #Pickling
+    pickle.dump(x_test, fp)
+with open("data_processed/y_validation.pkl", "wb") as fp:   #Pickling
+    pickle.dump(y_test, fp)
+
+# dump dictionaries
 with open("data_processed/w2i.pkl", "wb") as fp:   #Pickling
     pickle.dump(w2i, fp)
-
 with open("data_processed/t2i.pkl", "wb") as fp:   #Pickling
     pickle.dump(t2i, fp)
