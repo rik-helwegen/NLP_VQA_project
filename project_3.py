@@ -83,7 +83,7 @@ training_size = 10000
 # test_size = len(x_test)
 test_size = 10000
 # validation test_size
-validation_size = 200
+validation_size = 10000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -176,7 +176,7 @@ def evaluate(model, data):
     return accuracy, avg_test_loss
 
 
-optimizer = optim.Adam(model.parameters(), lr=0.0001)  #, weight_decay=0.00001)
+optimizer = optim.Adam(model.parameters(), lr=0.001)  #, weight_decay=0.00001)
 # different layers must use different learning rates
 # optimizer = optim.Adam([
 #     {'params': model.embedding.parameters(), 'lr': 1e-1}
@@ -251,10 +251,9 @@ for ITER in range(epochs):
 
 
 #final eval
-# np.random.shuffle(test_data)
-# test_data = test_data[:30]
 np.random.shuffle(validation_data)
-test_data =validation_data[:30]
+test_data = validation_data[:30]
+
 predictions = []
 for i in range(len(test_data)):
     question = test_data[i][0]
@@ -272,7 +271,28 @@ for i in range(len(test_data)):
     #     correct += 1
     predictions.append(predict)
 
-print("predictions =", predictions)
+print("predictions for validation=", predictions)
+
+np.random.shuffle(training_data)
+test_data =training_data[:30]
+predictions = []
+for i in range(len(test_data)):
+    question = test_data[i][0]
+    answer = test_data[i][1]
+    img_id = test_data[i][2]
+    image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
+
+    eval_question_tensor = Variable(torch.FloatTensor([question]))
+    eval_image_tensor = Variable(torch.FloatTensor([image]))
+
+    eval_scores = model(eval_question_tensor, eval_image_tensor)
+    eval_target = Variable(torch.LongTensor([answer]))
+    predict = eval_scores.data.numpy().argmax(axis=1)[0]
+    # if predict == answer:
+    #     correct += 1
+    predictions.append(predict)
+
+print("predictions for training", predictions)
 
 plt.close('all')
 f, axarr = plt.subplots(3, sharex=True)
