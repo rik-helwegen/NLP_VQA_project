@@ -35,10 +35,17 @@ with open("data_processed/x_train.pkl", "rb") as fp:   #Pickling
     x_train = pickle.load(fp)
 with open("data_processed/y_train.pkl", "rb") as fp:   #Pickling
     y_train = pickle.load(fp)
+
 with open("data_processed/x_test.pkl", "rb") as fp:   #Pickling
     x_test = pickle.load(fp)
 with open("data_processed/y_test.pkl", "rb") as fp:   #Pickling
     y_test = pickle.load(fp)
+
+with open("data_processed/x_validation.pkl", "rb") as fp:   #Pickling
+    x_validation = pickle.load(fp)
+with open("data_processed/y_validation.pkl", "rb") as fp:   #Pickling
+    y_validation = pickle.load(fp)
+
 with open("data_processed/w2i.pkl", "rb") as fp:   #Pickling
     w2i = pickle.load(fp)
 with open("data_processed/t2i.pkl", "rb") as fp:   #Pickling
@@ -71,18 +78,22 @@ def one_hot_encoding(data):
 
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
-training_size = 10000
+
+training_size = 3000
 # test_size = len(x_test)
 test_size = 100
+# validation test_size
+validation_size = 200
+
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
+x_validation = x_validation[:validation_size]
 
 # for ease, separate the data
 # training
 answers_train = y_train[:training_size]
 img_ids_train = [x[0] for x in x_train]
 questions_train = [x[1] for x in x_train]
-
 # encodes to one hot vector
 questions_train = one_hot_encoding(questions_train)
 
@@ -90,7 +101,15 @@ questions_train = one_hot_encoding(questions_train)
 answers_test = y_test[:test_size]
 img_ids_test = [x[0] for x in x_test]
 questions_test = [x[1] for x in x_test]
+# encodes to one hot vector
 questions_test = one_hot_encoding(questions_test)
+
+# test
+answers_validation = y_validation[]
+img_ids_validation = [x[0] for x in x_validation]
+questions_validation = [x[1] for x in x_validation]
+# encodes to one hot vector
+questions_validation = one_hot_encoding(questions_validation)
 
 # combine questions and answers to [ [question[i], answer[i]], img_id[i]] (for every i)
 training_data = [[questions_train[i], answers_train[i], img_ids_train[i]] for i in range(len(questions_train))]
@@ -98,6 +117,9 @@ training_data = np.asarray(training_data)
 
 test_data = [[questions_test[i], answers_test[i], img_ids_test[i]] for i in range(len(questions_test))]
 test_data = np.asarray(test_data)
+
+validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
+validation_data = np.asarray(validation_data)
 
 
 # neural network
@@ -107,14 +129,15 @@ class CBOW(nn.Module):
         self.embedding = nn.Linear(vocab_size, embedding_dim)
         self.embedding_output = nn.Linear(embedding_dim, output_dim)
         self.img_output = nn.Linear(image_features_dim, output_dim)
+        self.softmax = nn.Softmax()
 
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
         embedding_output = self.embedding_output(embeds)
-        img_output = self.img_output(image_input)
-        addition = torch.add(embedding_output, img_output)
+        # img_output = self.img_output(image_input)
+        # addition = torch.add(embedding_output, img_output)
 
-        return addition
+        return self.softmax(embedding_output)
 
 
 model = CBOW(nwords, 2000, nfeatures, ntags)
@@ -122,11 +145,10 @@ model = CBOW(nwords, 2000, nfeatures, ntags)
 print(model)
 
 
-# # TODO Question: Do we need to evaluate the whole test_data as one batch?
 def evaluate(model, test_data):
     """Evaluate a model on a data set."""
     eval_loss = 0.0
-    correct = 0.
+    correct = 0.0
 
     # forward with batch size = 1
     for i in range(len(test_data)):
@@ -152,19 +174,26 @@ def evaluate(model, test_data):
         if predict == answer:
             correct += 1
 
-    return correct/len(test_data), eval_loss/len(test_data)
+    return correct/len(test_data) * 100, eval_loss/len(test_data)
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)
+# different layers must use different learning rates
+# optimizer = optim.Adam([
+#     {'params': model.embedding.parameters(), 'lr': 1e-1}
+#     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
+# ])
+
 # TODO look into batch normalisation
-minibatch_size = 50
+minibatch_size = 35
 
 # TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
 # TODO loss doesn't go down every iteration, but in general it does.
 # with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
 
 # Number of epochs
-epochs = 30
+
+epochs = 50
 # after which number of epochs we want a evaluation:
 test_update = 1
 # create zero vectors to save progress
@@ -177,8 +206,8 @@ for ITER in range(epochs):
 
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
+        np.random.shuffle(training_data)
         batch = training_data[i:i + minibatch_size]
-        y_train_mini = y_train[i:i + minibatch_size]
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]
         input_img_ids = [x[2] for x in batch]
