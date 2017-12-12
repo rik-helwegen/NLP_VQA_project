@@ -78,6 +78,7 @@ def one_hot_encoding(data):
 
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
+
 training_size = 3000
 # test_size = len(x_test)
 test_size = 100
@@ -191,6 +192,7 @@ minibatch_size = 35
 # with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
 
 # Number of epochs
+
 epochs = 50
 # after which number of epochs we want a evaluation:
 test_update = 1
