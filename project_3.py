@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 10000
+training_size = 100000
 # test_size = len(x_test)
 test_size = 10000
 # validation test_size
-validation_size = 200
+validation_size = 2000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -280,7 +280,7 @@ axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-l
 axarr[0].legend()
 axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
 axarr[1].legend()
-axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Accuracy')
+axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Validation Accuracy')
 axarr[2].legend()
 axarr[2].set_xlabel('Iterations')
 plt.show()
