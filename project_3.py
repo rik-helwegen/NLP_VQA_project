@@ -104,7 +104,7 @@ questions_test = [x[1] for x in x_test]
 # encodes to one hot vector
 questions_test = one_hot_encoding(questions_test)
 
-# test
+# validation
 answers_validation = y_validation
 img_ids_validation = [x[0] for x in x_validation]
 questions_validation = [x[1] for x in x_validation]
@@ -144,16 +144,17 @@ model = CBOW(nwords, 164, nfeatures, ntags)
 print(model)
 
 
-def evaluate(model, test_data):
+def evaluate(model, data):
     """Evaluate a model on a data set."""
     test_loss = 0.0
     correct = 0.0
     np.random.shuffle(test_data)
     # forward with batch size = 1
-    for i in range(len(test_data)):
-        question = test_data[i][0]
-        answer = test_data[i][1]
-        img_id = test_data[i][2]
+    for i in range(len(data)):
+
+        question = data[i][0]
+        answer = data[i][1]
+        img_id = data[i][2]
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
         question_tensor = Variable(torch.FloatTensor([question]))
@@ -170,8 +171,8 @@ def evaluate(model, test_data):
         if predict == answer:
             correct += 1
 
-    accuracy = correct / len(test_data) * 100
-    avg_test_loss = test_loss/len(test_data)
+    accuracy = correct / len(data) * 100
+    avg_test_loss = test_loss/len(data)
     return accuracy, avg_test_loss
 
 
@@ -191,12 +192,13 @@ minibatch_size = 35
 
 # Number of epochs
 
+
 epochs = 15
-# after which number of epochs we want an evaluation:
-test_update = 1
+# # after which number of epochs we want a evaluation:
+# validation_update = 1
 # create zero vectors to save progress
 learning_train = np.zeros([epochs, 2])
-learning_test = np.zeros([int(math.floor((epochs-1)/test_update))+1, 3])
+learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
 
 for ITER in range(epochs):
     train_loss = 0.0
@@ -237,9 +239,9 @@ for ITER in range(epochs):
     learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
     # testing progress
-    acc, avg_test_loss = evaluate(model, training_data)
-    print("iter %r: test loss/sent %.6f, accuracy=%.6f" % (ITER, avg_test_loss, acc))
-    learning_test[ITER, :] = [ITER, avg_test_loss, acc]
+    acc, avg_loss = evaluate(model, validation_data)
+    print("iter %r: test loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+    learning_validation[ITER, :] = [ITER, avg_loss, acc]
 
     # # evaluate, only evaluate every 'test_update' iterations, to save time
     # if ITER % test_update == 0:
@@ -271,14 +273,13 @@ for i in range(len(test_data)):
 
 print("predictions =", predictions)
 
-
 plt.close('all')
 f, axarr = plt.subplots(3, sharex=True)
 axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
 axarr[0].legend()
-axarr[1].plot(learning_test[:, 0], learning_test[:, 1], label='Average-test-loss')
+axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
 axarr[1].legend()
-axarr[2].plot(learning_test[:, 0], learning_test[:, 2], 'r-', label='Accuracy')
+axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Accuracy')
 axarr[2].legend()
 axarr[2].set_xlabel('Iterations')
 plt.show()
