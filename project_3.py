@@ -79,9 +79,9 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 1000
+training_size = 10000
 # test_size = len(x_test)
-test_size = 100
+test_size = 10000
 # validation test_size
 validation_size = 200
 
@@ -176,7 +176,7 @@ def evaluate(model, data):
     return accuracy, avg_test_loss
 
 
-optimizer = optim.Adam(model.parameters(), lr=0.01, weight_decay=0.005)
+optimizer = optim.Adam(model.parameters(), lr=0.0001)  #, weight_decay=0.00001)
 # different layers must use different learning rates
 # optimizer = optim.Adam([
 #     {'params': model.embedding.parameters(), 'lr': 1e-1}
@@ -195,10 +195,15 @@ minibatch_size = 35
 
 epochs = 15
 # # after which number of epochs we want a evaluation:
-# validation_update = 1
+validation_update = 1
 # create zero vectors to save progress
 learning_train = np.zeros([epochs, 2])
 learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
+# learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
+
+print('initial loss')
+acc, avg_loss = evaluate(model, validation_data)
+print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 for ITER in range(epochs):
     train_loss = 0.0
@@ -239,21 +244,17 @@ for ITER in range(epochs):
     learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
     # testing progress
-    acc, avg_loss = evaluate(model, validation_data)
-    print("iter %r: test loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-    learning_validation[ITER, :] = [ITER, avg_loss, acc]
+    if ITER % validation_update == 0:
+        acc, avg_loss = evaluate(model, validation_data)
+        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+        learning_validation[ITER, :] = [ITER, avg_loss, acc]
 
-    # # evaluate, only evaluate every 'test_update' iterations, to save time
-    # if ITER % test_update == 0:
-    #     acc, avg_test_loss = evaluate(model, training_data)
-    #     print("iter %r: test loss/sent %.6f, accuracy=%.6f" % (ITER, avg_test_loss, acc))
-    #     learning_test[int(ITER/test_update), :] = [ITER, avg_test_loss, acc]
 
 #final eval
 # np.random.shuffle(test_data)
 # test_data = test_data[:30]
-np.random.shuffle(training_data)
-test_data = training_data[:30]
+np.random.shuffle(validation_data)
+test_data =validation_data[:30]
 predictions = []
 for i in range(len(test_data)):
     question = test_data[i][0]
