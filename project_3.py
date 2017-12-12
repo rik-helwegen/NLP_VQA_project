@@ -206,10 +206,6 @@ for ITER in range(epochs):
     for i in range(0, training_data.shape[0], minibatch_size):
         np.random.shuffle(training_data)
         batch = training_data[i:i + minibatch_size]
-<<<<<<< HEAD
-=======
-
->>>>>>> 3668081ff70b5a03b2b51f0f41dcc3cea5ba1aaa
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]
         input_img_ids = [x[2] for x in batch]
