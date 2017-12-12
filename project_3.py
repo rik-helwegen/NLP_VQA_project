@@ -149,6 +149,9 @@ def evaluate(model, data):
     test_loss = 0.0
     correct = 0.0
     np.random.shuffle(test_data)
+
+    correct_answers = []
+    predict_answers = []
     # forward with batch size = 1
     for i in range(len(data)):
 
@@ -168,12 +171,14 @@ def evaluate(model, data):
 
         # measure accuracy of prediction
         predict = scores.data.numpy().argmax(axis=1)[0]
+        predict_answers.append(predict)
         if predict == answer:
             correct += 1
+            correct_answers.append(answer)
 
     accuracy = correct / len(data) * 100
     avg_test_loss = test_loss/len(data)
-    return accuracy, avg_test_loss
+    return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 
 optimizer = optim.Adam(model.parameters(), lr=0.0001)  #, weight_decay=0.00001)
@@ -202,7 +207,7 @@ learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1,
 # learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
 
 print('initial loss')
-acc, avg_loss = evaluate(model, validation_data)
+acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
 print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 for ITER in range(epochs):
@@ -245,9 +250,11 @@ for ITER in range(epochs):
 
     # testing progress
     if ITER % validation_update == 0:
-        acc, avg_loss = evaluate(model, validation_data)
+        acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
         print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
         learning_validation[ITER, :] = [ITER, avg_loss, acc]
+        print("Unique correct answers", correct_answers)
+        print("Unique predict answers", predict_answers)
 
 
 #final eval
