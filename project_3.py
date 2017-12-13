@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100
+training_size = 100000000
 # test_size = len(x_test)
-test_size = 100
+test_size = 100000000
 # validation test_size
-validation_size = 200
+validation_size = 100000000
 
 
 x_train = x_train[:training_size]
