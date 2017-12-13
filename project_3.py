@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100
+training_size = 100000000
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
-validation_size = 200
+validation_size = 200000000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -213,9 +213,11 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # set parameters for hyper optimization
 
 # Jeroen Run
-LR_list = [0.001]
+# LR_list = [0.001]
 # Rik run:
-# LR_list = [0.0001, 0.00001]
+LR_list = [0.00001]
+# Sierk run:
+# LR_list = [0.001]
 
 batch_list = [32, 64, 128]
 WD_list = [0]
@@ -226,7 +228,7 @@ for WD in WD_list:
 
             model = CBOW(nwords, 164, nfeatures, ntags)
             optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
-            print('learning rate: %f, weight decay: %f,\nlowest valid. loss: %f, batch size: %i' % (LR, WD, LL, minibatch_size))
+            print('learning rate: %f, weight decay: %f,\n batch size: %i' % (LR, WD, minibatch_size))
             for ITER in range(epochs):
                 train_loss = 0.0
                 start = time.time()
