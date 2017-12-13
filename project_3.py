@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100000000
+training_size = 100
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
-validation_size = 200000000
+validation_size = 200
 
 
 x_train = x_train[:training_size]
@@ -204,8 +204,8 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 #TODO: uncomment the part you should run
 
 # Rik Run:
-# LR_WORDS_list = [0.01]
-# LR_OUT_list = [0.001, 0.0001, 0.00001]
+LR_WORDS_list = [0.01]
+LR_OUT_list = [0.001, 0.0001, 0.00001]
 
 # Jeroen Run:
 # LR_WORDS_list = [0.001]
@@ -220,16 +220,16 @@ batch_list = [32, 64]
 
 WD_list = [0]
 
-for WD in WD_list:
-    for LR in LR_list:
+for LR_OUT in LR_OUT_list:
+    for LR_WORDS in LR_WORDS_list:
         for minibatch_size in batch_list:
 
             model = CBOW(nwords, 164, nfeatures, ntags)
             optimizer = optim.Adam([
-                {'params': model.embedding.parameters(), 'lr': LR},
-                {'params': model.embedding_output.parameters(), 'lr': LR}
-                , {'params': model.img_output.parameters(), 'lr': 1e-3}])
-            print('learning rate: %f, weight decay: %f,\n batch size: %i' % (LR, WD, minibatch_size))
+                {'params': model.embedding.parameters(), 'lr': LR_WORDS},
+                {'params': model.embedding_output.parameters(), 'lr': LR_WORDS}
+                , {'params': model.img_output.parameters(), 'lr': LR_OUT}])
+            print('learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size))
             for ITER in range(epochs):
                 train_loss = 0.0
                 start = time.time()
@@ -302,7 +302,7 @@ for WD in WD_list:
             LL = min(learning_validation[:,1])
 
             # create plot to save
-            title = 'learning rate: %f, weight decay: %f,\nlowest valid. loss: %f, batch size: %i' % (LR, WD, LL, minibatch_size)
+            title = 'learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size)
             f, axarr = plt.subplots(3, sharex=True)
             axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
             axarr[0].legend()
@@ -313,7 +313,7 @@ for WD in WD_list:
             axarr[2].set_xlabel('Iterations')
             plt.suptitle(title)
             # plt.show()
-            path = './hyper_parameter_tuning/' + 'LR_%.8f-WD_%.8f-LL%.8f-batch_%i' % (LR, WD, LL, minibatch_size)
+            path = './hyper_parameter_tuning/' + 'LR_words_%.8f-LR_out_%.8f-LL%.8f-batch_%i' % (LR_WORDS, LR_OUT, LL, minibatch_size)
             f.savefig(path + '.png',  bbox_inches='tight')
 
             # save data
