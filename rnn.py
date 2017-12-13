@@ -79,12 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100000000
+training_size = 10000
 # test_size = len(x_test)
-test_size = 100
+test_size = 10000
 # validation test_size
-validation_size = 200000000
-
+validation_size = 10000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -139,17 +138,15 @@ class CBOW(nn.Module):
 
         return embedding_output
 
-
-model = CBOW(nwords, 164, nfeatures, ntags)
+model = CBOW(nwords, 64, nfeatures, ntags)
 
 print(model)
-
 
 def evaluate(model, data):
     """Evaluate a model on a data set."""
     test_loss = 0.0
     correct = 0.0
-    np.random.shuffle(data)
+    np.random.shuffle(test_data)
 
     correct_answers = []
     predict_answers = []
@@ -182,24 +179,19 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 
-optimizer = optim.Adam(model.parameters(), lr=0.001)  #, weight_decay=0.00001)
+# optimizer = optim.Adam(model.parameters(), lr=0.001)  #, weight_decay=0.00001)
 # different layers must use different learning rates
-# optimizer = optim.Adam([
-#     {'params': model.embedding.parameters(), 'lr': 1e-1}
-#     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
-# ])
+optimizer = optim.Adam([
+    {'params': model.embedding.parameters(), 'lr': 0.001},
+    {'params': model.embedding_output.parameters(), 'lr': 0.001}
+    , {'params': model.img_output.parameters(), 'lr': 1e-3}])
 
 # TODO look into batch normalisation
-# minibatch_size = 35
+minibatch_size = 35
 
-# TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
-# TODO loss doesn't go down every iteration, but in general it does.
-# with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
 
 # Number of epochs
-
-
-epochs = 20
+epochs = 15
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -211,112 +203,83 @@ print('initial loss')
 acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
 print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
-# set parameters for hyper optimization
+for ITER in range(epochs):
+    train_loss = 0.0
+    start = time.time()
+    batches_count = 0
+    # split up data in mini-batches
+    for i in range(0, training_data.shape[0], minibatch_size):
+        batches_count += 1
+        np.random.shuffle(training_data)
+        batch = training_data[i:i + minibatch_size]
+        input_questions = [x[0] for x in batch]
+        input_targets = [x[1] for x in batch]
+        input_img_ids = [x[2] for x in batch]
 
-# Jeroen Run
-# LR_list = [0.001]
-# Rik run:
-LR_list = [0.00001]
-# Sierk run:
-# LR_list = [0.001]
+        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
+        images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
-batch_list = [32, 64, 128]
-WD_list = [0]
+        # forward pass
+        question_tensor = Variable(torch.FloatTensor(input_questions))
+        image_features_tensor = Variable(torch.FloatTensor(images_input))
+        scores = model(question_tensor, image_features_tensor)
+        loss = nn.CrossEntropyLoss()
+        target = Variable(torch.LongTensor(input_targets))
 
-for WD in WD_list:
-    for LR in LR_list:
-        for minibatch_size in batch_list:
+        output = loss(scores, target)
+        train_loss += output.data[0]
 
-            model = CBOW(nwords, 164, nfeatures, ntags)
-            optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
-            print('learning rate: %f, weight decay: %f,\n batch size: %i' % (LR, WD, minibatch_size))
-            for ITER in range(epochs):
-                train_loss = 0.0
-                start = time.time()
-                batches_count = 0
-                # split up data in mini-batches
-                for i in range(0, training_data.shape[0], minibatch_size):
-                    batches_count += 1
-                    np.random.shuffle(training_data)
-                    batch = training_data[i:i + minibatch_size]
-                    input_questions = [x[0] for x in batch]
-                    input_targets = [x[1] for x in batch]
-                    input_img_ids = [x[2] for x in batch]
+        # backward pass
+        model.zero_grad()
+        output.backward()
 
-                    # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
-                    images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
+        # update weights
+        optimizer.step()
 
-                    # forward pass
-                    question_tensor = Variable(torch.FloatTensor(input_questions))
-                    image_features_tensor = Variable(torch.FloatTensor(images_input))
-                    scores = model(question_tensor, image_features_tensor)
-                    loss = nn.CrossEntropyLoss()
-                    target = Variable(torch.LongTensor(input_targets))
+    # training progress
+    print("iter %r: train loss/sent %.6f, time=%.2fs" %
+          (ITER, train_loss/batches_count, time.time() - start))
+    learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
-                    output = loss(scores, target)
-                    train_loss += output.data[0]
+    # testing progress
+    if ITER % validation_update == 0:
+        acc, avg_loss, correct_answers, predict_answers = evaluate(model, training_data)
+        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+        learning_validation[ITER, :] = [ITER, avg_loss, acc]
+        print("Unique correct answers", correct_answers)
+        print("Unique predict answers", predict_answers)
 
-                    # backward pass
-                    model.zero_grad()
-                    output.backward()
 
-                    # update weights
-                    optimizer.step()
+#final eval
+np.random.shuffle(training_data)
+test_data = training_data[:30]
 
-                # training progress
-                print("iter %r: train loss/sent %.6f, time=%.2fs" %
-                      (ITER, train_loss/batches_count, time.time() - start))
-                learning_train[ITER, :] = [ITER, train_loss/batches_count]
+predictions = []
+for i in range(len(test_data)):
+    question = test_data[i][0]
+    answer = test_data[i][1]
+    img_id = test_data[i][2]
+    image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
-                # testing progress
-                if ITER % validation_update == 0:
-                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
-                    print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-                    learning_validation[ITER, :] = [ITER, avg_loss, acc]
-                    print("Unique correct answers", correct_answers)
-                    print("Unique predict answers", predict_answers)
+    eval_question_tensor = Variable(torch.FloatTensor([question]))
+    eval_image_tensor = Variable(torch.FloatTensor([image]))
 
-            np.random.shuffle(validation_data)
-            valid_data = validation_data  #[:30]
-            predictions = []
+    eval_scores = model(eval_question_tensor, eval_image_tensor)
+    eval_target = Variable(torch.LongTensor([answer]))
+    predict = eval_scores.data.numpy().argmax(axis=1)[0]
+    # if predict == answer:
+    #     correct += 1
+    predictions.append(predict)
 
-            for i in range(len(valid_data)):
-                question = valid_data[i][0]
-                answer = valid_data[i][1]
-                img_id = valid_data[i][2]
-                image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
+print("predictions for training", predictions)
 
-                eval_question_tensor = Variable(torch.FloatTensor([question]))
-                eval_image_tensor = Variable(torch.FloatTensor([image]))
-
-                eval_scores = model(eval_question_tensor, eval_image_tensor)
-                eval_target = Variable(torch.LongTensor([answer]))
-                predict = eval_scores.data.numpy().argmax(axis=1)[0]
-                # if predict == answer:
-                #     correct += 1
-                predictions.append(predict)
-
-            # print("predictions =", predictions)
-
-            # get lowest validation loss:
-            LL = min(learning_validation[:,1])
-
-            # create plot to save
-            title = 'learning rate: %f, weight decay: %f,\nlowest valid. loss: %f, batch size: %i' % (LR, WD, LL, minibatch_size)
-            f, axarr = plt.subplots(3, sharex=True)
-            axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
-            axarr[0].legend()
-            axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
-            axarr[1].legend()
-            axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Validation Accuracy')
-            axarr[2].legend()
-            axarr[2].set_xlabel('Iterations')
-            plt.suptitle(title)
-            # plt.show()
-            path = './hyper_parameter_tuning/' + 'LR_%.8f-WD_%.8f-LL%.8f-batch_%i' % (LR, WD, LL, minibatch_size)
-            f.savefig(path + '.png',  bbox_inches='tight')
-
-            # save data
-            np.save(path + '_valid.npy', learning_validation)
-            np.save(path + '_train.npy', learning_train)
-            plt.close('all')
+plt.close('all')
+f, axarr = plt.subplots(3, sharex=True)
+axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
+axarr[0].legend()
+axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
+axarr[1].legend()
+axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Accuracy')
+axarr[2].legend()
+axarr[2].set_xlabel('Iterations')
+plt.show()
