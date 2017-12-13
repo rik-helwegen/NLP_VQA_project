@@ -214,8 +214,8 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # set parameters for hyper optimization
 
 
-# Rik run:
 LR_list = [0.001, 0.0001]
+
 # Sierk run:
 # LR_list = [0.001]
 
