@@ -134,10 +134,10 @@ class CBOW(nn.Module):
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
         embedding_output = self.embedding_output(embeds)
-        # img_output = self.img_output(image_input)
-        # addition = torch.add(embedding_output, img_output)
+        img_output = self.img_output(image_input)
+        addition = torch.add(embedding_output, img_output)
 
-        return embedding_output
+        return addition
 
 
 model = CBOW(nwords, 164, nfeatures, ntags)
@@ -182,23 +182,8 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 
-optimizer = optim.Adam(model.parameters(), lr=0.001)  #, weight_decay=0.00001)
-# different layers must use different learning rates
-# optimizer = optim.Adam([
-#     {'params': model.embedding.parameters(), 'lr': 1e-1}
-#     , {'params': model.only_embedding.parameters(), 'lr': 1e-3}
-# ])
-
-# TODO look into batch normalisation
-# minibatch_size = 35
-
-# TODO check if it doesn't learn to always output 'yes', because it outputs a lot of 17's
-# TODO loss doesn't go down every iteration, but in general it does.
-# with only words it learns super quickly??, with batchsize 1; the acc goes to 20 % after 10 questions.
 
 # Number of epochs
-
-
 epochs = 20
 # # after which number of epochs we want a evaluation:
 validation_update = 1
@@ -214,12 +199,25 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # set parameters for hyper optimization
 
 
-LR_list = [0.001, 0.0001]
+# according to paper, LR words should be much higher than LR_OUT, this explains combinations
 
-# Sierk run:
-# LR_list = [0.001]
+#TODO: uncomment the part you should run
 
-batch_list = [32, 64, 128]
+# Rik Run:
+# LR_WORDS_list = [0.01]
+# LR_OUT_list = [0.001, 0.0001, 0.00001]
+
+# Jeroen Run:
+# LR_WORDS_list = [0.001]
+# LR_OUT_list = [0.0001, 0.00001]
+
+# Sierk Run:
+# LR_WORDS_list = [0.0001]
+# LR_OUT_list = [0.00001]
+
+
+batch_list = [32, 64]
+
 WD_list = [0]
 
 for WD in WD_list:
@@ -227,7 +225,10 @@ for WD in WD_list:
         for minibatch_size in batch_list:
 
             model = CBOW(nwords, 164, nfeatures, ntags)
-            optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
+            optimizer = optim.Adam([
+                {'params': model.embedding.parameters(), 'lr': LR},
+                {'params': model.embedding_output.parameters(), 'lr': LR}
+                , {'params': model.img_output.parameters(), 'lr': 1e-3}])
             print('learning rate: %f, weight decay: %f,\n batch size: %i' % (LR, WD, minibatch_size))
             for ITER in range(epochs):
                 train_loss = 0.0
