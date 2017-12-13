@@ -147,8 +147,8 @@ class CBOW(nn.Module):
     def forward(self, question_input, image_input):
         embeds = self.embedding(question_input)
         embedding_output = self.embedding_output(embeds)
-        # img_output = self.img_output(image_input)
-        # addition = torch.add(embedding_output, img_output)
+        img_output = self.img_output(image_input)
+        addition = torch.add(embedding_output, img_output)
 
         return embedding_output
 
@@ -182,7 +182,7 @@ training_data, test_data, validation_data = dataLoader()
 validation_update = 1
 
 # set parameters for hyper optimization
-LR = 0.0008
+LR = 0.0002
 minibatch_size = 128
 epochs = 20
 vocwords = nwords
@@ -231,8 +231,8 @@ for ITER in range(epochs):
         scores = model(question_tensor, image_features_tensor)
         loss = nn.CrossEntropyLoss()
         target = Variable(torch.LongTensor(input_targets))
-
         output = loss(scores, target)
+
         train_loss += output.data[0]
 
         # backward pass
