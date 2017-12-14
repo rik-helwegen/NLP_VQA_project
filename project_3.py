@@ -182,7 +182,7 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 # Number of epochs
-epochs = 30
+epochs = 40
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
