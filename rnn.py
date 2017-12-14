@@ -192,16 +192,16 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 # different layers must use different learning rates
-optimizer = optim.Adam(model.parameters(), lr = 0.00001)
-# optimizer = optim.Adam([
-#     {'params': model.embedding.parameters(), 'lr': 0.001},
-#     {'params': model.embedding_output.parameters(), 'lr': 0.001}
-#     , {'params': model.img_output.parameters(), 'lr': 1e-3}])
+# optimizer = optim.Adam(model.parameters(), lr = 0.0001)
+optimizer = optim.Adam([
+    {'params': model.embedding.parameters(), 'lr': 0.00001},
+    {'params': model.embedding_output.parameters(), 'lr': 0.0000001}
+    , {'params': model.img_output.parameters(), 'lr': 0.0000001}])
 
 
 minibatch_size = 60
 # Number of epochs
-epochs = 15
+epochs = 20
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
