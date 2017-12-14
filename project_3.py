@@ -81,7 +81,7 @@ def one_hot_encoding(data):
 
 training_size = 100000000
 # test_size = len(x_test)
-test_size = 100000000
+test_size = 1000000000
 # validation test_size
 validation_size = 100000000
 
@@ -184,7 +184,7 @@ def evaluate(model, data):
 
 
 # Number of epochs
-epochs = 20
+epochs = 30
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -203,7 +203,7 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 #TODO: uncomment the part you should run
 
-# # Rik Run:
+# Rik Run:
 # LR_WORDS_list = [0.01]
 # LR_OUT_list = [0.001, 0.0001, 0.00001]
 
@@ -213,11 +213,9 @@ LR_WORDS_list = [0.001]
 LR_OUT_list = [0.00001]
 
 # Sierk Run:
-# LR_WORDS_list = [0.0001]
-# LR_OUT_list = [0.00001]
+LR_WORDS_list = [0.0005]
+LR_OUT_list = [0.00005]
 
-
-# batch_list = [32, 64]
 batch_list = [64]
 
 WD_list = [0]
@@ -225,100 +223,82 @@ WD_list = [0]
 for LR_OUT in LR_OUT_list:
     for LR_WORDS in LR_WORDS_list:
         for minibatch_size in batch_list:
-            if not (LR_OUT == 0.001 and minibatch_size == 32):
-                model = CBOW(nwords, 164, nfeatures, ntags)
-                optimizer = optim.Adam([
-                    {'params': model.embedding.parameters(), 'lr': LR_WORDS},
-                    {'params': model.embedding_output.parameters(), 'lr': LR_WORDS}
-                    , {'params': model.img_output.parameters(), 'lr': LR_OUT}])
-                print('learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size))
-                for ITER in range(epochs):
-                    train_loss = 0.0
-                    start = time.time()
-                    batches_count = 0
-                    # split up data in mini-batches
-                    for i in range(0, training_data.shape[0], minibatch_size):
-                        batches_count += 1
-                        np.random.shuffle(training_data)
-                        batch = training_data[i:i + minibatch_size]
-                        input_questions = [x[0] for x in batch]
-                        input_targets = [x[1] for x in batch]
-                        input_img_ids = [x[2] for x in batch]
+            model = CBOW(nwords, 164, nfeatures, ntags)
+            optimizer = optim.Adam([
+                {'params': model.embedding.parameters(), 'lr': LR_WORDS},
+                {'params': model.embedding_output.parameters(), 'lr': LR_WORDS}
+                , {'params': model.img_output.parameters(), 'lr': LR_OUT}])
+            print('learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size))
+            for ITER in range(epochs):
+                train_loss = 0.0
+                start = time.time()
+                batches_count = 0
+                # split up data in mini-batches
+                np.random.shuffle(training_data)
+                for i in range(0, training_data.shape[0], minibatch_size):
+                    batches_count += 1
+                    batch = training_data[i:i + minibatch_size]
+                    input_questions = [x[0] for x in batch]
+                    input_targets = [x[1] for x in batch]
+                    input_img_ids = [x[2] for x in batch]
 
-                        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
-                        images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
+                    # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
+                    images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
-                        # forward pass
-                        question_tensor = Variable(torch.FloatTensor(input_questions))
-                        image_features_tensor = Variable(torch.FloatTensor(images_input))
-                        scores = model(question_tensor, image_features_tensor)
-                        loss = nn.CrossEntropyLoss()
-                        target = Variable(torch.LongTensor(input_targets))
+                    # forward pass
+                    question_tensor = Variable(torch.FloatTensor(input_questions))
+                    image_features_tensor = Variable(torch.FloatTensor(images_input))
+                    scores = model(question_tensor, image_features_tensor)
+                    loss = nn.CrossEntropyLoss()
+                    target = Variable(torch.LongTensor(input_targets))
 
-                        output = loss(scores, target)
-                        train_loss += output.data[0]
+                    output = loss(scores, target)
+                    train_loss += output.data[0]
 
-                        # backward pass
-                        model.zero_grad()
-                        output.backward()
+                    # backward pass
+                    model.zero_grad()
+                    output.backward()
 
-                        # update weights
-                        optimizer.step()
+                    # update weights
+                    optimizer.step()
 
-                    # training progress
-                    print("iter %r: train loss/sent %.6f, time=%.2fs" %
-                          (ITER, train_loss/batches_count, time.time() - start))
-                    learning_train[ITER, :] = [ITER, train_loss/batches_count]
+                # training progress
+                print("iter %r: train loss/sent %.6f, time=%.2fs" %
+                      (ITER, train_loss/batches_count, time.time() - start))
+                learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
-                    # testing progress
-                    if ITER % validation_update == 0:
-                        acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
-                        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-                        learning_validation[ITER, :] = [ITER, avg_loss, acc]
-                        print("Unique correct answers", correct_answers)
-                        print("Unique predict answers", predict_answers)
+                # testing progress
+                if ITER % validation_update == 0:
+                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
+                    print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+                    learning_validation[ITER, :] = [ITER, avg_loss, acc]
+                    print("Unique correct answers", correct_answers)
+                    print("Unique predict answers", predict_answers)
 
-                np.random.shuffle(validation_data)
-                valid_data = validation_data  #[:30]
-                predictions = []
+                # save model each iteration
+                path = './hyper_parameter_tuning/' + 'LR_words_%.8f-LR_out_%.8f-batch_%i-ITER_%i' % (
+                LR_WORDS, LR_OUT, minibatch_size, ITER) + '.pt'
+                torch.save(model.state_dict(), path)
 
-                for i in range(len(valid_data)):
-                    question = valid_data[i][0]
-                    answer = valid_data[i][1]
-                    img_id = valid_data[i][2]
-                    image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
+            # get lowest validation loss:
+            LL = min(learning_validation[:,1])
 
-                    eval_question_tensor = Variable(torch.FloatTensor([question]))
-                    eval_image_tensor = Variable(torch.FloatTensor([image]))
+            # create plot to save
+            title = 'learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size)
+            f, axarr = plt.subplots(3, sharex=True)
+            axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
+            axarr[0].legend()
+            axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
+            axarr[1].legend()
+            axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Validation Accuracy')
+            axarr[2].legend()
+            axarr[2].set_xlabel('Iterations')
+            plt.suptitle(title)
+            # plt.show()
+            path = './hyper_parameter_tuning/' + 'LR_words_%.8f-LR_out_%.8f-LL%.8f-batch_%i' % (LR_WORDS, LR_OUT, LL, minibatch_size)
+            f.savefig(path + '.png',  bbox_inches='tight')
 
-                    eval_scores = model(eval_question_tensor, eval_image_tensor)
-                    eval_target = Variable(torch.LongTensor([answer]))
-                    predict = eval_scores.data.numpy().argmax(axis=1)[0]
-                    # if predict == answer:
-                    #     correct += 1
-                    predictions.append(predict)
-
-                # print("predictions =", predictions)
-
-                # get lowest validation loss:
-                LL = min(learning_validation[:,1])
-
-                # create plot to save
-                title = 'learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size)
-                f, axarr = plt.subplots(3, sharex=True)
-                axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
-                axarr[0].legend()
-                axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
-                axarr[1].legend()
-                axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Validation Accuracy')
-                axarr[2].legend()
-                axarr[2].set_xlabel('Iterations')
-                plt.suptitle(title)
-                # plt.show()
-                path = './hyper_parameter_tuning/' + 'LR_words_%.8f-LR_out_%.8f-LL%.8f-batch_%i' % (LR_WORDS, LR_OUT, LL, minibatch_size)
-                f.savefig(path + '.png',  bbox_inches='tight')
-
-                # save data
-                np.save(path + '_valid.npy', learning_validation)
-                np.save(path + '_train.npy', learning_train)
-                plt.close('all')
+            # save data
+            np.save(path + '_valid.npy', learning_validation)
+            np.save(path + '_train.npy', learning_train)
+            plt.close('all')
