@@ -279,7 +279,7 @@ axarr[2].legend()
 axarr[2].set_xlabel('Iterations')
 plt.show()
 
-path = './rnn_results/' + 'LR_words_%.8f-LR_out_%.8f-LL%.8f-batch_%i' % (LR_WORDS, LR_OUT, LL, minibatch_size)
+path = './hyper_parameter_tuning/RNN'
 f.savefig(path + '.png',  bbox_inches='tight')
 
 # save data
