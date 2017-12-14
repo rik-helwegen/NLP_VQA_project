@@ -278,3 +278,11 @@ axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label=
 axarr[2].legend()
 axarr[2].set_xlabel('Iterations')
 plt.show()
+
+path = './hyper_parameter_tuning/RNN'
+f.savefig(path + '.png',  bbox_inches='tight')
+
+# save data
+np.save(path + '_valid.npy', learning_validation)
+np.save(path + '_train.npy', learning_train)
+plt.close('all')
