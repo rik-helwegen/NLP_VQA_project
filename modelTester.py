@@ -41,29 +41,30 @@ def dataLoader():
         x_test = pickle.load(fp)
     with open("data_processed/y_test_type.pkl", "rb") as fp:   #Pickling
         y_test = pickle.load(fp)
+    with open("data_processed/y_test_type1.pkl", "rb") as fp:   #Pickling
+        y_test_type = pickle.load(fp)
 
     #size of data used
     # test_size = len(x_test)
-    test_size = 2962
+    # test_size = 2962
 
     # use size for shorter time
-    x_test = x_test[:test_size]
+    # x_test = x_test[:test_size]
     img_ids_test = [x[0] for x in x_test]
     questions_test = [x[1] for x in x_test]
     print(len(questions_test))
 
     # test
-    answers_test = y_test[:test_size]
-    question_type = [x[0] for x in y_test]
-    answer_type = [x[1] for x in y_test]
-    answers = [x[2] for x in y_test]
+    # answers_test = y_test[:test_size]
+    answers = [x for x in y_test]
+    answer_type = [x for x in y_test_type]
 
     # encodes to one hot vector
     questions_test = one_hot_encoding(questions_test)
     print(questions_test)
 
     # combine questions and answers to [ [question[i], answer[i]], img_id[i]] (for every i)
-    test_data = [[questions_test[i], answers[i], img_ids_test[i], question_type[i], answer_type[i]] for i in range(len(questions_test))]
+    test_data = [[questions_test[i], answers[i], img_ids_test[i], answer_type[i]] for i in range(len(questions_test))]
     test_data = np.asarray(test_data)
 
     return test_data
@@ -124,26 +125,38 @@ print(nwords, ntags, nfeatures)
 
 #create model
 model = CBOW(vocwords, 164, vocfeatures, voctags)
-model.load_state_dict(torch.load('model/testing_model.pkl'))
-
-# create zero vectors to save progress
-# learning_train = np.zeros([epochs, 2])
-# learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
-
+model.load_state_dict(torch.load('model/35percentacc.pt'))
 
 """Evaluate a model on a data set."""
 test_loss = 0.0
+
 correct = 0.0
 correctFive = 0.0
-np.random.shuffle(test_data)
-
 correct_answers = []
 predict_answers = []
+
+correctYN = 0.0
+correctFiveYN = 0.0
+correct_answersYN = []
+predict_answersYN = []
+
+correctO = 0.0
+correctFiveO = 0.0
+correct_answersO = []
+predict_answersO = []
+
+correctN = 0.0
+correctFiveN = 0.0
+correct_answersN = []
+predict_answersN = []
+
+
 # forward with batch size = 1
 for i in range(len(test_data)):
 
     question = test_data[i][0]
     answer = test_data[i][1]
+    answer_type = test_data[i][3]
 
     img_id = test_data[i][2]
     image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
@@ -163,29 +176,72 @@ for i in range(len(test_data)):
 
     # measure accuracy of prediction
 
-
-
+    #get prediction
     predict = score.data.numpy().argmax(axis=1)[0]
+    #var
     predict_answers.append(predict)
     if predict == answer:
+        #var
         correct += 1
+        #var
         correct_answers.append(answer)
-
-        top5 = score.clone()
-        fiveAnswers = []
-
+    #get top 5 prediction
+    top5 = score.clone()
+    #list
+    fiveAnswers = []
     for iterate in range(5):
+        #get predict
         predict = top5.data.numpy().argmax(axis=1)[0]
+        #set predict 0 for next iter
         top5.data[0][predict] = 0
+        #var
         fiveAnswers.append(predict)
-
+    #check in top 5
     if answer in fiveAnswers:
+        #var
         correctFive += 1
+
+    if answer_type == 'other':
+        #get prediction
+        predict = score.data.numpy().argmax(axis=1)[0]
+        #var
+        predict_answersO.append(predict)
+        if predict == answer:
+            #var
+            correctO += 1
+            #var
+            correct_answersO.append(answer)
+        #get top 5 prediction
+        top5 = score.clone()
+        #list
+        fiveAnswers = []
+        for iterate in range(5):
+            #get predict
+            predict = top5.data.numpy().argmax(axis=1)[0]
+            #set predict 0 for next iter
+            top5.data[0][predict] = 0
+            #var
+            fiveAnswersO.append(predict)
+        #check in top 5
+        if answer in fiveAnswers:
+            #var
+            correctFiveO += 1
+
+    # elif answer_type == 'number':
+    #     conti
+    # elif answer_type == 'yes/no':
 
 print("testing on #", len(test_data))
 print("# in top5:", correctFive)
 print("# in top1:", correct)
 print("top5 accuracy=", (correctFive/len(test_data))*100)
 print("top1 accuracy=", (correct/len(test_data))*100)
+
+print("testing on #", len(test_data))
+print("# in top5:", correctFiveO)
+print("# in top1:", correctO)
+print("top5 accuracy=", (correctFiveO/len(test_data))*100)
+print("top1 accuracy=", (correctO/len(test_data))*100)
+
 avg_test_loss = test_loss/len(test_data)
 print(avg_test_loss, len(set(correct_answers)), len(set(predict_answers)))
