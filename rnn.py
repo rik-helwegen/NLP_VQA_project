@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100
+training_size = 100000
 # test_size = len(x_test)
-test_size = 10000
+test_size = 100
 # validation test_size
-validation_size = 10000
+validation_size = 100
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -143,8 +143,6 @@ class RNN(nn.Module):
     def forward(self, words_input, image_input, last_output):
 
         embeds = self.embedding(words_input)
-        # print(embeds)
-        # print(last_output)
         question_with_hidden = torch.cat((embeds, last_output), 1)
         embedding_output = self.embedding_output(question_with_hidden)
         image_with_hidden = torch.cat((image_input, last_output), 1)
@@ -159,75 +157,60 @@ print(model)
 
 def evaluate(model, data, minibatch_size):
     """Evaluate a model on a data set."""
-    test_loss_eval = 0.0
-    correct_eval = 0.0
-    np.random.shuffle(data)
 
-    # keep track in order to find the number of uniques values
-    correct_answers_eval = []
-    predict_answers_eval = []
+    test_loss = 0.0
+    correct = 0.0
 
-    for i in range(0, data.shape[0], minibatch_size):
-        batch_eval = data[i:i + minibatch_size]
-        input_questions_eval = np.asarray([x[0] for x in batch_eval])
+    correct_answers = []
+    predict_answers = []
+    # forward with batch size = 1
+    for i in range(len(data)):
+        question = data[i][0]
+        answer = data[i][1]
+        img_id = data[i][2]
+        image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
-        input_targets_eval = [x[1] for x in batch_eval]
-
-        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
-        input_img_ids_eval = [x[2] for x in batch_eval]
-        input_images_eval = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids_eval]
-
-        # create a zeros last output to start new sentence with
-        last_output_eval = np.ndarray.tolist(np.zeros((len(input_questions_eval), ntags)))
-        last_output_eval = Variable(torch.FloatTensor(last_output_eval))
-
-        # loop through words in sentence:
-        for j in range(len(input_questions_eval[0])):
-            print(input_questions_eval[:,:10])
-            input_j_words_eval = np.ndarray.tolist(input_questions_eval[:, j])
-            print(input_j_words_eval)
+        last_output = np.ndarray.tolist(np.zeros((1, ntags)))
+        last_output = Variable(torch.FloatTensor(last_output))
+        for j in range(len(question)):
+            input_j_word = question[j]
             # forward pass
-            question_tensor_eval = Variable(torch.LongTensor(input_j_words_eval))
-            image_features_tensor_eval = Variable(torch.FloatTensor(input_images_eval))
-            print(question_tensor_eval, image_features_tensor_eval)
-            # For now we only care about the scores at the end of the sentence
-            scores_eval = model(question_tensor_eval, image_features_tensor_eval, last_output_eval)
-            last_output_eval = scores_eval
+            question_tensor = Variable(torch.LongTensor([input_j_word]))
+            image_features_tensor = Variable(torch.FloatTensor([image]))
+            scores = model(question_tensor, image_features_tensor, last_output)
+            last_output = scores
 
-        loss_eval = nn.CrossEntropyLoss()
-        target_eval = Variable(torch.FloatTensor([input_targets_eval]))
+        loss = nn.CrossEntropyLoss()
+        target = Variable(torch.LongTensor([answer]))
 
-        output_eval = loss_eval(scores_eval, target_eval)
-        test_loss_eval += output_eval.data[0]
+        output = loss(last_output, target)
+        test_loss += output.data[0]
 
         # measure accuracy of prediction
-        # TODO: check if this works
-        for i in range(len(predict_eval)):
-            # TODO: especially check indexing of scores_eval
-            predict_eval = scores_eval[i, :].data.numpy().argmax(axis=1)[0]
-            predict_answers_eval.append(predict_eval)
-            if predict_eval == input_targets_eval[i]:
-                correct_eval += 1
-                correct_answers_eval.append(input_targets_eval[i])
+        predict = last_output.data.numpy().argmax(axis=1)[0]
+        predict_answers.append(predict)
+        if predict == answer:
+            correct += 1
+            correct_answers.append(answer)
 
     accuracy = correct_eval / len(data) * 100
     avg_test_loss = test_loss_eval/len(data)
     return accuracy, avg_test_loss, len(set(correct_answers_eval)), len(set(predict_answers_eval))
 
-
 # different layers must use different learning rates
-optimizer = optim.Adam([
-    {'params': model.embedding.parameters(), 'lr': 0.001},
-    {'params': model.embedding_output.parameters(), 'lr': 0.001}
-    , {'params': model.img_output.parameters(), 'lr': 1e-3}])
+optimizer = optim.Adam(model.parameters(), lr = 0.00001)
+# optimizer = optim.Adam([
+#     {'params': model.embedding.parameters(), 'lr': 0.001},
+#     {'params': model.embedding_output.parameters(), 'lr': 0.001}
+#     , {'params': model.img_output.parameters(), 'lr': 1e-3}])
 
 # TODO look into batch normalisation
-minibatch_size = 35
-
+minibatch_size = 60
 
 # Number of epochs
-epochs = 20
-# # after which number of epochs we want an evaluation:
+
+epochs = 30
+# # after which number of epochs we want a evaluation:
 validation_update = 1
 
 # create zero vectors to save progress
@@ -245,7 +228,6 @@ for ITER in range(epochs):
     start = time.time()
     batches_count = 0
     np.random.shuffle(training_data)
-
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
         batches_count += 1
@@ -288,12 +270,12 @@ for ITER in range(epochs):
     learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
     # testing progress
-    # if ITER % validation_update == 0:
-    #     acc, avg_loss, correct_answers, predict_answers = evaluate(model, training_data)
-    #     print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-    #     learning_validation[ITER, :] = [ITER, avg_loss, acc]
-    #     print("Unique correct answers", correct_answers)
-    #     print("Unique predict answers", predict_answers)
+    if ITER % validation_update == 0:
+        acc, avg_loss, correct_answers, predict_answers = evaluate(model, training_data)
+        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+        learning_validation[ITER, :] = [ITER, avg_loss, acc]
+        print("Unique correct answers", correct_answers)
+        print("Unique predict answers", predict_answers)
 
 
 #final eval
