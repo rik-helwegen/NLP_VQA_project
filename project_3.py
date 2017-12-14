@@ -125,7 +125,7 @@ validation_data = np.asarray(validation_data)
 
 print(len(training_data), len(test_data), len(validation_data))
 # concat for final train
-training_data = np.concatenate((training_data, validation_data))
+# training_data = np.concatenate((training_data, validation_data))
 
 # neural network
 class CBOW(nn.Module):
@@ -270,7 +270,7 @@ for LR_OUT in LR_OUT_list:
 
                 # testing progress
                 if ITER % validation_update == 0:
-                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, test_data)
+                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
                     print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
                     learning_validation[ITER, :] = [ITER, avg_loss, acc]
                     print("Unique correct answers", correct_answers)
