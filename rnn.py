@@ -103,7 +103,7 @@ for question in questions_train:
     for i in range(length_longest_question-length):
         question.append(nwords)
     question_train_equal.append(question)
-print(question_train_equal)
+# print(question_train_equal)
 nwords += 1
 questions_train = question_train_equal
 
@@ -130,15 +130,17 @@ validation_data = np.asarray(validation_data)
 class RNN(nn.Module):
     def __init__(self, vocab_size, embedding_dim, image_features_dim, output_dim):
         super(RNN, self).__init__()
-
+        self.compress_out = nn.Linear(output_dim, embedding_dim)
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        self.embedding_output = nn.Linear(embedding_dim + output_dim, output_dim)
+        # output previous round is compressed to embedding dim, thats why next layer takes 2x embedding_dim
+        self.embedding_output = nn.Linear(embedding_dim + embedding_dim, output_dim)
         self.img_output = nn.Linear(image_features_dim + output_dim, output_dim)
 
     def forward(self, words_input, image_input, last_output):
 
+        compress_out = self.compress_out(last_output)
         embeds = self.embedding(words_input)
-        question_with_hidden = torch.cat((embeds, last_output), 1)
+        question_with_hidden = torch.cat((embeds, compress_out), 1)
         embedding_output = self.embedding_output(question_with_hidden)
         image_with_hidden = torch.cat((image_input, last_output), 1)
         img_output = self.img_output(image_with_hidden)
