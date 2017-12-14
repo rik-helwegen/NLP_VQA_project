@@ -81,7 +81,7 @@ def one_hot_encoding(data):
 
 training_size = 100000000
 # test_size = len(x_test)
-test_size = 100000000
+test_size = 1000000000
 # validation test_size
 validation_size = 100000000
 
@@ -184,7 +184,7 @@ def evaluate(model, data):
 
 
 # Number of epochs
-epochs = 20
+epochs = 30
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -204,16 +204,16 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 #TODO: uncomment the part you should run
 
 # Rik Run:
-LR_WORDS_list = [0.01]
-LR_OUT_list = [0.001, 0.0001, 0.00001]
+# LR_WORDS_list = [0.01]
+# LR_OUT_list = [0.001, 0.0001, 0.00001]
 
 # Jeroen Run:
 # LR_WORDS_list = [0.001]
 # LR_OUT_list = [0.0001, 0.00001]
 
 # Sierk Run:
-# LR_WORDS_list = [0.0001]
-# LR_OUT_list = [0.00001]
+LR_WORDS_list = [0.0001]
+LR_OUT_list = [0.00001]
 
 
 batch_list = [32, 64]
@@ -235,9 +235,9 @@ for LR_OUT in LR_OUT_list:
                 start = time.time()
                 batches_count = 0
                 # split up data in mini-batches
+                np.random.shuffle(training_data)
                 for i in range(0, training_data.shape[0], minibatch_size):
                     batches_count += 1
-                    np.random.shuffle(training_data)
                     batch = training_data[i:i + minibatch_size]
                     input_questions = [x[0] for x in batch]
                     input_targets = [x[1] for x in batch]
@@ -276,27 +276,10 @@ for LR_OUT in LR_OUT_list:
                     print("Unique correct answers", correct_answers)
                     print("Unique predict answers", predict_answers)
 
-            np.random.shuffle(validation_data)
-            valid_data = validation_data  #[:30]
-            predictions = []
-
-            for i in range(len(valid_data)):
-                question = valid_data[i][0]
-                answer = valid_data[i][1]
-                img_id = valid_data[i][2]
-                image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
-
-                eval_question_tensor = Variable(torch.FloatTensor([question]))
-                eval_image_tensor = Variable(torch.FloatTensor([image]))
-
-                eval_scores = model(eval_question_tensor, eval_image_tensor)
-                eval_target = Variable(torch.LongTensor([answer]))
-                predict = eval_scores.data.numpy().argmax(axis=1)[0]
-                # if predict == answer:
-                #     correct += 1
-                predictions.append(predict)
-
-            # print("predictions =", predictions)
+                # save model each iteration
+                path = './hyper_parameter_tuning/' + 'LR_words_%.8f-LR_out_%.8f-batch_%i-ITER_%i' % (
+                LR_WORDS, LR_OUT, minibatch_size, ITER) + '.pt'
+                torch.save(model.state_dict(), path)
 
             # get lowest validation loss:
             LL = min(learning_validation[:,1])
