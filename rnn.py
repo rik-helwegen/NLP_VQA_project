@@ -194,14 +194,14 @@ def evaluate(model, data):
 # different layers must use different learning rates
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 optimizer = optim.Adam([
-    {'params': model.embedding.parameters(), 'lr': 0.00001},
+    {'params': model.embedding.parameters(), 'lr': 0.0001},
     {'params': model.embedding_output.parameters(), 'lr': 0.0000001}
     , {'params': model.img_output.parameters(), 'lr': 0.0000001}])
 
 
 minibatch_size = 60
 # Number of epochs
-epochs = 20
+epochs = 40
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -266,6 +266,8 @@ for ITER in range(epochs):
         learning_validation[ITER, :] = [ITER, avg_loss, acc]
         print("Unique correct answers", correct_answers)
         print("Unique predict answers", predict_answers)
+    path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + '.pt'
+    torch.save(model.state_dict(), path)
 
 
 plt.close('all')
