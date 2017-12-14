@@ -122,11 +122,8 @@ test_data = np.asarray(test_data)
 validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
 validation_data = np.asarray(validation_data)
 
-print(len(training_data))
-print(len(validation_data))
+# concat for final train
 training_data = np.concatenate((training_data, validation_data))
-
-print(len(training_data))
 
 # neural network
 class CBOW(nn.Module):
@@ -144,11 +141,9 @@ class CBOW(nn.Module):
 
         return addition
 
-
 model = CBOW(nwords, 164, nfeatures, ntags)
 
 print(model)
-
 
 def evaluate(model, data):
     """Evaluate a model on a data set."""
@@ -185,8 +180,6 @@ def evaluate(model, data):
     accuracy = correct / len(data) * 100
     avg_test_loss = test_loss/len(data)
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
-
-
 
 # Number of epochs
 epochs = 30
