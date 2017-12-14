@@ -122,6 +122,8 @@ test_data = np.asarray(test_data)
 validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
 validation_data = np.asarray(validation_data)
 
+
+print(len(training_data), len(test_data), len(validation_data))
 # concat for final train
 training_data = np.concatenate((training_data, validation_data))
 
@@ -206,12 +208,12 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # LR_OUT_list = [0.001, 0.0001, 0.00001]
 
 # Jeroen Run:
-# LR_WORDS_list = [0.001]
-# LR_OUT_list = [0.0001, 0.00001]
+LR_WORDS_list = [0.01, 0.001]
+LR_OUT_list = [0.0001, 0.00001]
 
-# Sierk Run:
-LR_WORDS_list = [0.0005]
-LR_OUT_list = [0.00005]
+# # Sierk Run:
+# LR_WORDS_list = [0.0005]
+# LR_OUT_list = [0.00005]
 
 
 batch_list = [64]
@@ -225,7 +227,7 @@ for LR_OUT in LR_OUT_list:
             model = CBOW(nwords, 164, nfeatures, ntags)
             optimizer = optim.Adam([
                 {'params': model.embedding.parameters(), 'lr': LR_WORDS},
-                {'params': model.embedding_output.parameters(), 'lr': LR_WORDS}
+                {'params': model.embedding_output.parameters(), 'lr': LR_OUT}
                 , {'params': model.img_output.parameters(), 'lr': LR_OUT}])
             print('learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size))
             for ITER in range(epochs):
