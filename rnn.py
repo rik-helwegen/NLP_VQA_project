@@ -196,9 +196,9 @@ def evaluate(model, data):
 # different layers must use different learning rates
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 optimizer = optim.Adam([
-    {'params': model.embedding.parameters(), 'lr': 0.0001},
-    {'params': model.embedding_output.parameters(), 'lr': 0.0000001}
-    , {'params': model.img_output.parameters(), 'lr': 0.0000001}])
+    {'params': model.embedding.parameters(), 'lr': 0.001},
+    {'params': model.embedding_output.parameters(), 'lr': 0.00001}
+    , {'params': model.img_output.parameters(), 'lr': 0.00001}])
 
 
 minibatch_size = 60
