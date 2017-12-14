@@ -90,11 +90,9 @@ def dataLoader():
         y_validation = pickle.load(fp)
 
     #size of data used
-    training_size = len(x_train)
-    # test_size = len(x_test)
+    training_size = 10000
     test_size = len(x_test)
-    # validation test_size
-    validation_size = len(x_validation)
+    validation_size = 500
 
     # use size for shorter time
     x_train = x_train[:training_size]
@@ -150,7 +148,7 @@ class CBOW(nn.Module):
         img_output = self.img_output(image_input)
         addition = torch.add(embedding_output, img_output)
 
-        return embedding_output
+        return addition
 
 
 ## DATA PART ##
@@ -182,18 +180,22 @@ training_data, test_data, validation_data = dataLoader()
 validation_update = 1
 
 # set parameters for hyper optimization
-LR = 0.0002
-minibatch_size = 128
-epochs = 20
+LR_WORDS = 0.0005
+LR_OUT = 0.00005
+minibatch_size = 64
+epochs = 40
 vocwords = nwords
 voctags = ntags
 vocfeatures = nfeatures
-WD = 0
 print(nwords, ntags, nfeatures)
 
 #create model
-model = CBOW(vocwords, 164, nfeatures, ntags)
-optimizer = optim.Adam(model.parameters(), lr=LR, weight_decay=WD)
+model = CBOW(vocwords, 164, vocfeatures, voctags)
+optimizer = optim.Adam([
+    {'params': model.embedding.parameters(), 'lr': LR_WORDS},
+    {'params': model.embedding_output.parameters(), 'lr': LR_WORDS},
+    {'params': model.img_output.parameters(), 'lr': LR_OUT}])
+
 print(model)
 
 # create zero vectors to save progress
@@ -206,17 +208,17 @@ acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_dat
 print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 #parameter settings
-print('learning rate: %f, weight decay: %f,\n batch size: %i' % (LR, WD, minibatch_size))
+print('lr words: %f, lr out: %f, batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size))
 
 #start epoch training
 for ITER in range(epochs):
     train_loss = 0.0
     start = time.time()
     batches_count = 0
+    np.random.shuffle(training_data)
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
         batches_count += 1
-        np.random.shuffle(training_data)
         batch = training_data[i:i + minibatch_size]
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]
@@ -232,7 +234,6 @@ for ITER in range(epochs):
         loss = nn.CrossEntropyLoss()
         target = Variable(torch.LongTensor(input_targets))
         output = loss(scores, target)
-
         train_loss += output.data[0]
 
         # backward pass
@@ -280,8 +281,11 @@ for i in range(len(valid_data)):
 # get lowest validation loss:
 LL = min(learning_validation[:,1])
 
+#save model
+torch.save(model.state_dict(), 'testing_model.pkl')
+
 # create plot to save
-title = 'learning rate: %f, weight decay: %f,\nlowest valid. loss: %f, batch size: %i' % (LR, WD, LL, minibatch_size)
+title = 'learning rate words: %f, learning rate output: %f,\n batch size: %i' % (LR_WORDS, LR_OUT, minibatch_size)
 f, axarr = plt.subplots(3, sharex=True)
 axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
 axarr[0].legend()
@@ -291,8 +295,9 @@ axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label=
 axarr[2].legend()
 axarr[2].set_xlabel('Iterations')
 plt.suptitle(title)
+
 # plt.show()
-path = './hyper_parameter_tuning/' + 'LR_%.8f-WD_%.8f-LL%.8f-batch_%i' % (LR, WD, LL, minibatch_size)
+path = './model/' + 'LR_words_%.8f-LR_out_%.8f-LL%.8f-batch_%i' % (LR_WORDS, LR_OUT, LL, minibatch_size)
 f.savefig(path + '.png',  bbox_inches='tight')
 
 # save data
