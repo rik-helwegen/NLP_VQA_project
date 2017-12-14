@@ -66,7 +66,7 @@ nwords = len(w2i)
 ntags = len(t2i)
 nfeatures = len(img_features[0])
 
-print(nwords, ntags, nfeatures)
+# print(nwords, ntags, nfeatures)
 
 # encodes one-hot with length of vocab size
 def one_hot_encoding(data):
@@ -103,7 +103,7 @@ for question in questions_train:
     for i in range(length_longest_question-length):
         question.append(nwords)
     question_train_equal.append(question)
-print(question_train_equal)
+# print(question_train_equal)
 nwords += 1
 questions_train = question_train_equal
 
@@ -143,8 +143,8 @@ class RNN(nn.Module):
     def forward(self, words_input, image_input, last_output):
 
         embeds = self.embedding(words_input)
-        print(embeds)
-        print(last_output)
+        # print(embeds)
+        # print(last_output)
         question_with_hidden = torch.cat((embeds, last_output), 1)
         embedding_output = self.embedding_output(question_with_hidden)
         image_with_hidden = torch.cat((image_input, last_output), 1)
@@ -157,41 +157,62 @@ model = RNN(nwords, 64, nfeatures, ntags)
 
 print(model)
 
-def evaluate(model, data):
+def evaluate(model, data, minibatch_size):
     """Evaluate a model on a data set."""
-    test_loss = 0.0
-    correct = 0.0
-    np.random.shuffle(test_data)
+    test_loss_eval = 0.0
+    correct_eval = 0.0
+    np.random.shuffle(data)
 
-    correct_answers = []
-    predict_answers = []
-    # forward with batch size = 1
-    for i in range(len(data)):
+    # keep track in order to find the number of uniques values
+    correct_answers_eval = []
+    predict_answers_eval = []
 
-        question = data[i][0]
-        answer = data[i][1]
-        img_id = data[i][2]
-        image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
+    for i in range(0, data.shape[0], minibatch_size):
+        batch_eval = data[i:i + minibatch_size]
+        input_questions_eval = np.asarray([x[0] for x in batch_eval])
 
-        question_tensor = Variable(torch.FloatTensor([question]))
-        image_features_tensor = Variable(torch.FloatTensor([image]))
-        scores = model(question_tensor, image_features_tensor)
-        loss = nn.CrossEntropyLoss()
-        target = Variable(torch.LongTensor([answer]))
+        input_targets_eval = [x[1] for x in batch_eval]
 
-        output = loss(scores, target)
-        test_loss += output.data[0]
+        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
+        input_img_ids_eval = [x[2] for x in batch_eval]
+        input_images_eval = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids_eval]
+
+        # create a zeros last output to start new sentence with
+        last_output_eval = np.ndarray.tolist(np.zeros((len(input_questions_eval), ntags)))
+        last_output_eval = Variable(torch.FloatTensor(last_output_eval))
+
+        # loop through words in sentence:
+        for j in range(len(input_questions_eval[0])):
+            print(input_questions_eval[:,:10])
+            input_j_words_eval = np.ndarray.tolist(input_questions_eval[:, j])
+            print(input_j_words_eval)
+            # forward pass
+            question_tensor_eval = Variable(torch.LongTensor(input_j_words_eval))
+            image_features_tensor_eval = Variable(torch.FloatTensor(input_images_eval))
+            print(question_tensor_eval, image_features_tensor_eval)
+            # For now we only care about the scores at the end of the sentence
+            scores_eval = model(question_tensor_eval, image_features_tensor_eval, last_output_eval)
+            last_output_eval = scores_eval
+
+        loss_eval = nn.CrossEntropyLoss()
+        target_eval = Variable(torch.FloatTensor([input_targets_eval]))
+
+        output_eval = loss_eval(scores_eval, target_eval)
+        test_loss_eval += output_eval.data[0]
 
         # measure accuracy of prediction
-        predict = scores.data.numpy().argmax(axis=1)[0]
-        predict_answers.append(predict)
-        if predict == answer:
-            correct += 1
-            correct_answers.append(answer)
+        # TODO: check if this works
+        for i in range(len(predict_eval)):
+            # TODO: especially check indexing of scores_eval
+            predict_eval = scores_eval[i, :].data.numpy().argmax(axis=1)[0]
+            predict_answers_eval.append(predict_eval)
+            if predict_eval == input_targets_eval[i]:
+                correct_eval += 1
+                correct_answers_eval.append(input_targets_eval[i])
 
-    accuracy = correct / len(data) * 100
-    avg_test_loss = test_loss/len(data)
-    return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
+    accuracy = correct_eval / len(data) * 100
+    avg_test_loss = test_loss_eval/len(data)
+    return accuracy, avg_test_loss, len(set(correct_answers_eval)), len(set(predict_answers_eval))
 
 
 # different layers must use different learning rates
@@ -205,26 +226,29 @@ minibatch_size = 35
 
 
 # Number of epochs
-epochs = 2
-# # after which number of epochs we want a evaluation:
+epochs = 20
+# # after which number of epochs we want an evaluation:
 validation_update = 1
+
 # create zero vectors to save progress
 learning_train = np.zeros([epochs, 2])
 learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
 # learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
 
-# print('initial loss')
-# acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
-# print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
+print('initial loss')
+acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data, minibatch_size)
+print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
+
 
 for ITER in range(epochs):
     train_loss = 0.0
     start = time.time()
     batches_count = 0
+    np.random.shuffle(training_data)
+
     # split up data in mini-batches
     for i in range(0, training_data.shape[0], minibatch_size):
         batches_count += 1
-        np.random.shuffle(training_data)
         batch = training_data[i:i + minibatch_size]
         input_questions = [x[0] for x in batch]
         input_targets = [x[1] for x in batch]

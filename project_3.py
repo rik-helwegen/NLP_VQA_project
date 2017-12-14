@@ -177,7 +177,7 @@ def evaluate(model, data):
             correct += 1
             correct_answers.append(answer)
 
-    accuracy = correct / len(data) * 100
+    accuracy = correct / len(data) * 100  # to make it percentage
     avg_test_loss = test_loss/len(data)
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
