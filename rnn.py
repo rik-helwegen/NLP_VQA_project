@@ -134,7 +134,7 @@ class RNN(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embedding_dim)
         # output previous round is compressed to embedding dim, thats why next layer takes 2x embedding_dim
         self.embedding_output = nn.Linear(embedding_dim + embedding_dim, output_dim)
-        self.img_output = nn.Linear(image_features_dim + output_dim, output_dim)
+        self.img_output = nn.Linear(image_features_dim + embedding_dim, output_dim)
 
     def forward(self, words_input, image_input, last_output):
 
@@ -142,7 +142,7 @@ class RNN(nn.Module):
         embeds = self.embedding(words_input)
         question_with_hidden = torch.cat((embeds, compress_out), 1)
         embedding_output = self.embedding_output(question_with_hidden)
-        image_with_hidden = torch.cat((image_input, last_output), 1)
+        image_with_hidden = torch.cat((image_input, compress_out), 1)
         img_output = self.img_output(image_with_hidden)
         addition = torch.add(embedding_output, img_output)
 
