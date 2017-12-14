@@ -210,7 +210,7 @@ learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1,
 # learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
 
 print('initial loss')
-acc, avg_loss, predict_answers, correct_answers = evaluate(model, test_data)
+acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
 print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 for ITER in range(epochs):
