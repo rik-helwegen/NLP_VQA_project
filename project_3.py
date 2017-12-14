@@ -212,11 +212,11 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # LR_OUT_list = [0.0001, 0.00001]
 
 # Sierk Run:
-LR_WORDS_list = [0.0001]
-LR_OUT_list = [0.00001]
+LR_WORDS_list = [0.0005]
+LR_OUT_list = [0.00005]
 
 
-batch_list = [32, 64]
+batch_list = [64]
 
 WD_list = [0]
 
