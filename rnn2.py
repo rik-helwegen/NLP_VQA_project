@@ -197,13 +197,13 @@ def evaluate(model, data):
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 optimizer = optim.Adam([
     {'params': model.embed.parameters(), 'lr': 0.1},
-    {'params': model.fc.parameters(), 'lr': 0.01}])
+    {'params': model.fc.parameters(), 'lr': 0.1}])
     # , {'params': model.img_output.parameters(), 'lr': 0.000001}])
 
 
 minibatch_size = 60
 # Number of epochs
-epochs = 30
+epochs = 80
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
