@@ -83,7 +83,7 @@ training_size = 100
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
-validation_size = 100
+validation_size = 1000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -128,25 +128,32 @@ validation_data = [[questions_validation[i], answers_validation[i], img_ids_vali
 validation_data = np.asarray(validation_data)
 
 class RNN(nn.Module):
-    def __init__(self, vocab_size, embed_size, hidden_size, num_layers, num_classes):
+    def __init__(self, vocab_size, embed_size, img_size, hidden_size, num_layers, num_classes):
         super(RNN, self).__init__()
-        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.relu = nn.ReLU()
+        self.embed = nn.Embedding(vocab_size, embed_size, padding_idx=nwords-1)
         self.hidden_size = hidden_size
         self.num_layers = num_layers
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
+        self.concat = nn.Linear(hidden_size + img_size, hidden_size)
         self.fc = nn.Linear(hidden_size, num_classes)
 
-    def forward(self, x):
+    def forward(self, x, image):
         x = self.embed(x)
 
         # Forward propagate RNN
         out, _ = self.lstm(x)
 
+        # concat images (added by Sierk, not sure if this is correct, but this was what tim suggested, I think)
+        concat = torch.cat((image, out[:, -1, :]), 1)
+        image_with_hidden = self.concat(concat)
+        image_with_hidden = self.relu(image_with_hidden)
+
         # Decode hidden state of last time step
-        out = self.fc(out[:, -1, :])
+        out = self.fc(image_with_hidden)
         return out
 
-model = RNN(nwords, 64, 100, nfeatures, ntags)
+model = RNN(nwords, 64, nfeatures, 100, 1, ntags)
 
 print(model)
 
@@ -165,9 +172,9 @@ def evaluate(model, data):
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
         # forward pass
-        question_tensor = Variable(torch.LongTensor(question))
+        question_tensor = Variable(torch.LongTensor([question]))
         image_features_tensor = Variable(torch.FloatTensor([image]))
-        scores = model(question_tensor)#, image_features_tensor)
+        scores = model(question_tensor, image_features_tensor)
         # last_output = scores
 
         loss = nn.CrossEntropyLoss()
@@ -176,7 +183,7 @@ def evaluate(model, data):
         test_loss += output.data[0]
 
         # measure accuracy of prediction
-        predict = last_output.data.numpy().argmax(axis=1)[0]
+        predict = scores.data.numpy().argmax(axis=1)[0]
         predict_answers.append(predict)
         if predict == answer:
             correct += 1
@@ -187,16 +194,16 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 # different layers must use different learning rates
-optimizer = optim.Adam(model.parameters(), lr = 0.0001)
-# optimizer = optim.Adam([
-#     {'params': model.embedding.parameters(), 'lr': 0.0001},
-#     {'params': model.embedding_output.parameters(), 'lr': 0.000001}
-#     , {'params': model.img_output.parameters(), 'lr': 0.000001}])
+# optimizer = optim.Adam(model.parameters(), lr = 0.0001)
+optimizer = optim.Adam([
+    {'params': model.embed.parameters(), 'lr': 0.1},
+    {'params': model.fc.parameters(), 'lr': 0.1}])
+    # , {'params': model.img_output.parameters(), 'lr': 0.000001}])
 
 
 minibatch_size = 60
 # Number of epochs
-epochs = 40
+epochs = 80
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -204,9 +211,9 @@ learning_train = np.zeros([epochs, 2])
 learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
 # learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
 
-# print('initial loss')
-# acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
-# print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
+print('initial loss')
+acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
+print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
 for ITER in range(epochs):
     train_loss = 0.0
@@ -228,7 +235,7 @@ for ITER in range(epochs):
         # forward pass
         question_tensor = Variable(torch.LongTensor(input_questions))
         image_features_tensor = Variable(torch.FloatTensor(images_input))
-        scores = model(question_tensor)
+        scores = model(question_tensor, image_features_tensor)
 
         loss = nn.CrossEntropyLoss()
         target = Variable(torch.LongTensor(input_targets))
@@ -248,15 +255,15 @@ for ITER in range(epochs):
           (ITER, train_loss/batches_count, time.time() - start))
     learning_train[ITER, :] = [ITER, train_loss/batches_count]
 
-    # # testing progress
-    # if ITER % validation_update == 0:
-    #     acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
-    #     print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-    #     learning_validation[ITER, :] = [ITER, avg_loss, acc]
-    #     print("Unique correct answers", correct_answers)
-    #     print("Unique predict answers", predict_answers)
-    # path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + '.pt'
-    # torch.save(model.state_dict(), path)
+    # testing progress
+    if ITER % validation_update == 0:
+        acc, avg_loss, correct_answers, predict_answers = evaluate(model, training_data)
+        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+        learning_validation[ITER, :] = [ITER, avg_loss, acc]
+        print("Unique correct answers", correct_answers)
+        print("Unique predict answers", predict_answers)
+    path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + '.pt'
+    torch.save(model.state_dict(), path)
 
     # save data
     path = './hyper_parameter_tuning/RNN_ITER_%i' % (ITER)
