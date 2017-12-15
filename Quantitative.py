@@ -122,7 +122,7 @@ print(nwords, ntags, nfeatures)
 
 #create model
 model = CBOW(vocwords, 164, vocfeatures, voctags)
-model.load_state_dict(torch.load('model/35percentacc.pt'))
+model.load_state_dict(torch.load('model/35_5percentacc.pt'))
 
 """Evaluate a model on a data set."""
 test_loss = 0.0
@@ -241,7 +241,7 @@ print("testing on #", len(test_data))
 print(position_array[0:10])
 
 import matplotlib.pyplot as plt
-f, axarr = plt.subplots(2,2, sharex=True)
+f, axarr = plt.subplots(2,2)
 axarr[0,0].plot(position_array[0:40],label ="total")
 axarr[0,0].legend()
 axarr[0,1].plot(position_arrayYN[0:40], label = "Yes/No")
@@ -250,8 +250,25 @@ axarr[1,0].plot(position_arrayNU[0:40], label = "Number")
 axarr[1,0].legend()
 axarr[1,1].plot(position_arrayOT[0:40], label = "Other")
 axarr[1,1].legend()
-plt.show()
 
+plt.suptitle("Distribution of answered ranked on position in output")
+
+# axarr[0,0].set_xlabel("Position from highest rank")
+axarr[0,0].set_ylabel("Amount on position")
+axarr[1,0].set_ylabel("Amount on position")
+axarr[1,0].set_xlabel("Position from highest rank")
+axarr[1,1].set_xlabel("Position from highest rank")
+# axarr[1,1].set_ylabel("Amount on position")
+
+# axarr[0,1].set_xlabel("Position from highest rank")
+# axarr[0,1].set_ylabel("Amount on position")
+
+axarr[0,0].set_ylim([0, 1000])
+axarr[0,1].set_ylim([0, 1000])
+axarr[1,1].set_ylim([0, 1000])
+axarr[1,0].set_ylim([0, 1000])
+
+f.savefig('quantitatief.png')
 
 # index 0 -> total, index 1 -> yes/no, index2 -> other, index3 -> number
 print("# in top5:", correct_five[0], "    # in top1:", correct[0])

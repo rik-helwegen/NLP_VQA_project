@@ -37,11 +37,11 @@ def one_hot_encoding(data):
 # dataloader Functions
 def dataLoader():
     # QUESTIONS AND ANSWERS LOADING #
-    with open("data_processed/x_test_type.pkl", "rb") as fp:   #Pickling
+    with open("data_processed/x_test.pkl", "rb") as fp:   #Pickling
         x_test = pickle.load(fp)
-    with open("data_processed/y_test_type.pkl", "rb") as fp:   #Pickling
+    with open("data_processed/y_test.pkl", "rb") as fp:   #Pickling
         y_test = pickle.load(fp)
-    with open("data_processed/y_test_type1.pkl", "rb") as fp:   #Pickling
+    with open("data_processed/y_test_type.pkl", "rb") as fp:   #Pickling
         y_test_type = pickle.load(fp)
 
     #size of data used
@@ -100,12 +100,16 @@ with open("data_processed/w2i.pkl", "rb") as fp:   #Pickling
     w2i = pickle.load(fp)
 with open("data_processed/t2i.pkl", "rb") as fp:   #Pickling
     t2i = pickle.load(fp)
+with open("data_processed/x_test_question.pkl", "rb") as fp:   #Pickling
+    questions = pickle.load(fp)
 
 #length vocabulary of questions, answers and image features
 nwords = len(w2i)
 ntags = len(t2i)
 nfeatures = len(img_features[0])
 
+i2w = {y:x for x,y in w2i.items()}
+i2t = {y:x for x,y in t2i.items()}
 # load question and answer datasets
 test_data = dataLoader()
 
@@ -122,7 +126,7 @@ print(nwords, ntags, nfeatures)
 
 #create model
 model = CBOW(vocwords, 164, vocfeatures, voctags)
-model.load_state_dict(torch.load('model/35percentacc.pt'))
+model.load_state_dict(torch.load('model/35_5percentacc.pt'))
 
 """Evaluate a model on a data set."""
 test_loss = 0.0
@@ -165,107 +169,156 @@ for i in range(len(test_data)):
 
     test_loss += output.data[0]
 
-
-
-    ##Get top 1 accuracy for all 4##
-
-
     # check prediction from output network
     predict = score.data.numpy().argmax(axis=1)[0]
-
     predict_sorted = []
     index = 0
     for pre in score.data[0]:
         predict_sorted.append([index,pre])
         index +=1
-
     predict_sorted = sorted(predict_sorted, key=lambda score: score[1], reverse=True)
     predict_sorted = np.asarray(predict_sorted)[:,0].tolist()
-    position_array[predict_sorted.index(answer)] +=1
-
-    #if type corresponds, add one to correct, also check position
-    if answer_type == 'yes/no':
-        total_yesno += 1
-        position_arrayYN[predict_sorted.index(answer)] +=1
-    elif answer_type == 'other':
-        total_other += 1
-        position_arrayOT[predict_sorted.index(answer)] +=1
-    elif answer_type == 'number':
-        total_number += 1
-        position_arrayNU[predict_sorted.index(answer)] +=1
-
-    # check if prediction is the same as answer
-    if predict == answer:
-        #add one to total
-        correct[0] += 1
-        #if type corresponds, add oneposition_array = np.zeros(voctags) to correct
-        if answer_type == 'yes/no':
-            correct[1] += 1
-        elif answer_type == 'other':
-            correct[2] += 1
-        elif answer_type == 'number':
-            correct[3] += 1
-
-    #get clone of score for top 5 accuracy
-    top5 = score.clone()
-    #get list with top 5 answers to check if it contains answer
-    five_answers = []
-
-    #iterate 5 times and set argmax of every iteration to zero
-    for iterate in range(5):
-        #get current iteration argmax
-        predict = top5.data.numpy().argmax(axis=1)[0]
-        #set predict 0 for next iter
-        top5.data[0][predict] = 0
-        #add prediction to check list
-        five_answers.append(predict)
-
-    #check if answer is in top 5
-    if answer in five_answers:
-        #add one to total correct top 5
-        correct_five[0] += 1
-        #if type corresponds, add one to correct
-        if answer_type == 'yes/no':
-            correct_five[1] += 1
-        elif answer_type == 'other':
-            correct_five[2] += 1
-        elif answer_type == 'number':
-            correct_five[3] += 1
 
 
-avg_test_loss = test_loss/len(test_data)
-print("avg test loss =", avg_test_loss)
+    if(predict_sorted.index(answer) > 1 and predict_sorted.index(answer) < 5 ):
+        print("     QUESTION     ", questions[i][0], "  answer = ", i2t[answer])
+        for i in range(3):
+            # check prediction from output network
+            predict = score.data.numpy().argmax(axis=1)[0]
+            print("Prediction = ",i2t[predict], "  img id = ", img_id)
+            print("total    score =   %.6f" % score.data[0][predict])
+            print("question score =   %.6f" % score_q.data[0][predict])
+            print("image    score =   %.6f" % score_i.data[0][predict])
 
-print("testing on #", len(test_data))
+            score.data[0][predict] = -1E6
 
-print(position_array[0:10])
+        predict_sorted = []
+        index = 0
+        for pre in score_q.data[0]:
+            predict_sorted.append([index,pre])
+            index +=1
+        predict_sorted = sorted(predict_sorted, key=lambda score: score[1], reverse=True)
+        predict_sorted = np.asarray(predict_sorted)[:,0].tolist()
+        words =  [i2t[word] for word in predict_sorted[0:6]]
+        score =  [score_q.data[0][int(word)] for word in predict_sorted[0:6]]
+        print("top 3 questions")
+        for i in range(6):
+            print (i+1, "=", words[i], " -> ", score[i])
 
-import matplotlib.pyplot as plt
-f, axarr = plt.subplots(2,2, sharex=True)
-axarr[0,0].plot(position_array[0:40],label ="total")
-axarr[0,0].legend()
-axarr[0,1].plot(position_arrayYN[0:40], label = "Yes/No")
-axarr[0,1].legend()
-axarr[1,0].plot(position_arrayNU[0:40], label = "Number")
-axarr[1,0].legend()
-axarr[1,1].plot(position_arrayOT[0:40], label = "Other")
-axarr[1,1].legend()
-plt.show()
+        predict_sorted = []
+        index = 0
+        for pre in score_i.data[0]:
+            predict_sorted.append([index,pre])
+            index +=1
+        predict_sorted = sorted(predict_sorted, key=lambda score: score[1], reverse=True)
+        predict_sorted = np.asarray(predict_sorted)[:,0].tolist()
+        words =  [i2t[word] for word in predict_sorted[0:6]]
+        score =  [score_i.data[0][int(word)] for word in predict_sorted[0:6]]
+        print("top 3 image")
+        for i in range(6):
+            print (i+1, "=", words[i], " -> ", score[i])
 
 
-# index 0 -> total, index 1 -> yes/no, index2 -> other, index3 -> number
-print("# in top5:", correct_five[0], "    # in top1:", correct[0])
-print("top1 accuracy total=", (correct[0]/len(test_data))*100)
-print("top5 accuracy total =", (correct_five[0]/len(test_data))*100)
 
-print("# in top5:", correct_five[1], "    # in top1:", correct[1])
-print("top1 accuracy yes/no=", (correct[1]/total_yesno)*100)
-print("top5 accuracy yes/no =", (correct_five[1]/total_yesno)*100)
 
-print("# in top5:", correct_five[2], "    # in top1:", correct[2])
-print("top1 accuracy other=", (correct[2]/total_other)*100)
-print("top5 accuracy other=", (correct_five[2]/total_other)*100)
 
-print("# in top5:", correct_five[3], "    # in top1:", correct[3])
-print("top1 accuracy number=", (correct[3]/total_number)*100)
-print("top5 accuracy number=", (correct_five[3]/total_number)*100)
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+#     #if type corresponds, add one to correct, also check position
+#     if answer_type == 'yes/no':
+#         total_yesno += 1
+#         position_arrayYN[predict_sorted.index(answer)] +=1
+#     elif answer_type == 'other':
+#         total_other += 1
+#         position_arrayOT[predict_sorted.index(answer)] +=1
+#     elif answer_type == 'number':
+#         total_number += 1
+#         position_arrayNU[predict_sorted.index(answer)] +=1
+#
+#     # check if prediction is the same as answer
+#     if predict == answer:
+#         #add one to total
+#         correct[0] += 1
+#         #if type corresponds, add oneposition_array = np.zeros(voctags) to correct
+#         if answer_type == 'yes/no':
+#             correct[1] += 1
+#         elif answer_type == 'other':
+#             correct[2] += 1
+#         elif answer_type == 'number':
+#             correct[3] += 1
+#
+#     #get clone of score for top 5 accuracy
+#     top5 = score.clone()
+#     #get list with top 5 answers to check if it contains answer
+#     five_answers = []
+#
+#     #iterate 5 times and set argmax of every iteration to zero
+#     for iterate in range(5):
+#         #get current iteration argmax
+#         predict = top5.data.numpy().argmax(axis=1)[0]
+#         #set predict 0 for next iter
+#         top5.data[0][predict] = 0
+#         #add prediction to check list
+#         five_answers.append(predict)
+#
+#     #check if answer is in top 5
+#     if answer in five_answers:
+#         #add one to total correct top 5
+#         correct_five[0] += 1
+#         #if type corresponds, add one to correct
+#         if answer_type == 'yes/no':
+#             correct_five[1] += 1
+#         elif answer_type == 'other':
+#             correct_five[2] += 1
+#         elif answer_type == 'number':
+#             correct_five[3] += 1
+#
+#
+# avg_test_loss = test_loss/len(test_data)
+# print("avg test loss =", avg_test_loss)
+#
+# print("testing on #", len(test_data))
+#
+# print(position_array[0:10])
+#
+# import matplotlib.pyplot as plt
+# f, axarr = plt.subplots(2,2, sharex=True)
+# axarr[0,0].plot(position_array[0:40],label ="total")
+# axarr[0,0].legend()
+# axarr[0,1].plot(position_arrayYN[0:40], label = "Yes/No")
+# axarr[0,1].legend()
+# axarr[1,0].plot(position_arrayNU[0:40], label = "Number")
+# axarr[1,0].legend()
+# axarr[1,1].plot(position_arrayOT[0:40], label = "Other")
+# axarr[1,1].legend()
+# plt.show()
+#
+#
+# # index 0 -> total, index 1 -> yes/no, index2 -> other, index3 -> number
+# print("# in top5:", correct_five[0], "    # in top1:", correct[0])
+# print("top1 accuracy total=", (correct[0]/len(test_data))*100)
+# print("top5 accuracy total =", (correct_five[0]/len(test_data))*100)
+#
+# print("# in top5:", correct_five[1], "    # in top1:", correct[1])
+# print("top1 accuracy yes/no=", (correct[1]/total_yesno)*100)
+# print("top5 accuracy yes/no =", (correct_five[1]/total_yesno)*100)
+#
+# print("# in top5:", correct_five[2], "    # in top1:", correct[2])
+# print("top1 accuracy other=", (correct[2]/total_other)*100)
+# print("top5 accuracy other=", (correct_five[2]/total_other)*100)
+#
+# print("# in top5:", correct_five[3], "    # in top1:", correct[3])
+# print("top1 accuracy number=", (correct[3]/total_number)*100)
+# print("top5 accuracy number=", (correct_five[3]/total_number)*100)

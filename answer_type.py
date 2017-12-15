@@ -44,6 +44,7 @@ def makeList(freq):
             removeWords.append(combo[0])
     return removeWords
 
+
 # to read in the questions
 def read_dataset_questions(filename):
     with open(filename, 'r') as file:
@@ -59,6 +60,15 @@ def read_dataset_questions(filename):
             words = [stemmer.stem(x) for x in words]
             # data structure: [ [img_id, question] ] for every question, and removes unary occurences.
             yield ([img_id, [w2i[x] for x in words if x not in remove]])
+
+# to read in the questions
+def read_dataset_questionlist(filename):
+    with open(filename, 'r') as file:
+        qdata = json.load(file)
+        for question in range(len(qdata['questions'])):
+            words = qdata['questions'][question]['question']
+            yield([words])
+
 
 # to read in the answers
 def read_dataset_answers(filename):
@@ -95,6 +105,7 @@ w2i = defaultdict(lambda: UNK, w2i)
 x_test = list(read_dataset_questions('data/vqa_questions_test.txt'))
 y_test = list(read_dataset_answers('data/vqa_annotatons_test.txt'))
 y_test_type = list(read_dataset_answer_types('data/vqa_annotatons_test.txt'))
+x_test_question = list(read_dataset_questionlist('data/vqa_questions_test.txt'))
 
 x_vali = list(read_dataset_questions('data/vqa_questions_valid.txt'))
 y_vali = list(read_dataset_answers('data/vqa_annotatons_valid.txt'))
@@ -102,3 +113,7 @@ y_vali = list(read_dataset_answers('data/vqa_annotatons_valid.txt'))
 # dump answer types
 with open("data_processed/y_test_type.pkl", "wb") as fp:   #Pickling
     pickle.dump(y_test_type, fp)
+
+# dump dictionaries
+with open("data_processed/x_test_question.pkl", "wb") as fp:   #Pickling
+    pickle.dump(x_test_question, fp)
