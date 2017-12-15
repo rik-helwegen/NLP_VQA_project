@@ -125,7 +125,7 @@ validation_data = np.asarray(validation_data)
 
 print(len(training_data), len(test_data), len(validation_data))
 # concat for final train
-# training_data = np.concatenate((training_data, validation_data))
+training_data = np.concatenate((training_data, validation_data))
 
 # neural network
 class CBOW(nn.Module):
@@ -184,7 +184,7 @@ def evaluate(model, data):
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
 # Number of epochs
-epochs = 40
+epochs = 20
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -208,13 +208,12 @@ print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 # LR_OUT_list = [0.001, 0.0001, 0.00001]
 
 # Jeroen Run:
-LR_WORDS_list = [0.01, 0.001]
-LR_OUT_list = [0.0001, 0.00001]
+LR_WORDS_list = [0.001]
+LR_OUT_list = [0.0001]
 
 # # Sierk Run:
 # LR_WORDS_list = [0.0005]
 # LR_OUT_list = [0.00005]
-
 
 batch_list = [64]
 
@@ -270,7 +269,7 @@ for LR_OUT in LR_OUT_list:
 
                 # testing progress
                 if ITER % validation_update == 0:
-                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
+                    acc, avg_loss, correct_answers, predict_answers = evaluate(model, test_data)
                     print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
                     learning_validation[ITER, :] = [ITER, avg_loss, acc]
                     print("Unique correct answers", correct_answers)
