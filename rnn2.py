@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 100
+training_size = 5000
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
-validation_size = 100
+validation_size = 1000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -189,14 +189,14 @@ def evaluate(model, data):
 # different layers must use different learning rates
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 optimizer = optim.Adam([
-    {'params': model.embed.parameters(), 'lr': 0.01},
-    {'params': model.fc.parameters(), 'lr': 0.01}])
+    {'params': model.embed.parameters(), 'lr': 0.1},
+    {'params': model.fc.parameters(), 'lr': 0.0001}])
     # , {'params': model.img_output.parameters(), 'lr': 0.000001}])
 
 
 minibatch_size = 60
 # Number of epochs
-epochs = 100
+epochs = 30
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -250,7 +250,7 @@ for ITER in range(epochs):
 
     # testing progress
     if ITER % validation_update == 0:
-        acc, avg_loss, correct_answers, predict_answers = evaluate(model, training_data)
+        acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
         print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
         learning_validation[ITER, :] = [ITER, avg_loss, acc]
         print("Unique correct answers", correct_answers)
