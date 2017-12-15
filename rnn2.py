@@ -146,7 +146,7 @@ class RNN(nn.Module):
         out = self.fc(out[:, -1, :])
         return out
 
-model = RNN(nwords, 64, 100, nfeatures, ntags)
+model = RNN(nwords, 64, 100, 1, ntags)
 
 print(model)
 
