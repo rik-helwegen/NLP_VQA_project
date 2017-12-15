@@ -136,6 +136,7 @@ class RNN(nn.Module):
         self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=nwords-1).cuda()
         self.output = nn.Linear(embedding_dim + image_features_dim + hidden_state_size, output_dim).cuda()
         self.hidden_in = nn.Linear(embedding_dim + image_features_dim + hidden_state_size, hidden_state_size).cuda()
+        self.linear1 = nn.Linear(output_dim, output_dim).cuda()
 
     def forward(self, words_input, image_input, hidden_state_input):
 
@@ -146,7 +147,7 @@ class RNN(nn.Module):
         hidden_state_out = self.ReLu(hidden_state_in)
 
         output_out = self.output(combined)
-
+        output_out = self.linear1(output_out)
         return output_out, hidden_state_out
 
 
@@ -202,8 +203,9 @@ def evaluate(model, data):
 # different layers must use different learning rates
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
 optimizer = optim.SGD([
-    {'params': model.embedding.parameters(), 'lr': 0.1},
-    {'params': model.output.parameters(), 'lr': 0.00005} ])
+    {'params': model.embedding.parameters(), 'lr': 0.001},
+    {'params': model.output.parameters(), 'lr': 0.00005},
+    {'params': model.linear1.parameters(), 'lr': 0.00005}])
 
 # met [0.001, 0.0001] wordt hij eerste 3 iteraties beter, daarna overfit
 # met [0.0001, 0,00001] meteen overfit
@@ -221,8 +223,8 @@ optimizer = optim.SGD([
 # met SGD [0.0001, 0.000005] (iets minder beslis power) (1, 235)(3,226)(2,113)(2,11)(2,2)(2,2)(2,2)(2,2)(2,2)(2,2)
 # met SGD [0.001, 0.0005] uit dat loakel optimum komen (2,2)(2,2)
 # met SGD [0.1, 0.0005] uit dat loakel optimum komen (2,2)(2,2)
-# met SGD [0.1, 0.00005] uit dat loakel optimum komen
-
+# met SGD [0.001, 0.00005] uit dat loakel optimum komen (2,2)
+# met SGD extra hidden layer [0.001, 0.00005] (2,2) (2,2)
 
 minibatch_size = 10
 # Number of epochs
