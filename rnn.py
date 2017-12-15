@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 1000
+training_size = 10000
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
-validation_size = 100
+validation_size = 1000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -127,30 +127,36 @@ test_data = np.asarray(test_data)
 validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
 validation_data = np.asarray(validation_data)
 
+
 class RNN(nn.Module):
-    def __init__(self, vocab_size, embedding_dim, image_features_dim, output_dim):
+    def __init__(self, vocab_size, embedding_dim, image_features_dim, output_dim, hidden_state_size):
         super(RNN, self).__init__()
-        self.compress_out = nn.Linear(output_dim, embedding_dim)
-        self.embedding = nn.Embedding(vocab_size, embedding_dim)
-        # output previous round is compressed to embedding dim, thats why next layer takes 2x embedding_dim
-        self.embedding_output = nn.Linear(embedding_dim + embedding_dim, output_dim)
-        self.img_output = nn.Linear(image_features_dim + embedding_dim, output_dim)
 
-    def forward(self, words_input, image_input, last_output):
+        self.ReLu = nn.ReLU().cuda()
+        self.embedding = nn.Embedding(vocab_size, embedding_dim, padding_idx=nwords-1).cuda()
+        self.output = nn.Linear(embedding_dim + image_features_dim + hidden_state_size, output_dim).cuda()
+        self.hidden_in = nn.Linear(embedding_dim + image_features_dim + hidden_state_size, hidden_state_size).cuda()
 
-        compress_out = self.compress_out(last_output)
+    def forward(self, words_input, image_input, hidden_state_input):
+
         embeds = self.embedding(words_input)
-        question_with_hidden = torch.cat((embeds, compress_out), 1)
-        embedding_output = self.embedding_output(question_with_hidden)
-        image_with_hidden = torch.cat((image_input, compress_out), 1)
-        img_output = self.img_output(image_with_hidden)
-        addition = torch.add(embedding_output, img_output)
+        combined = torch.cat((embeds, image_input, hidden_state_input), 1)
+        combined = self.ReLu(combined)
+        hidden_state_in = self.hidden_in(combined)
+        hidden_state_out = self.ReLu(hidden_state_in)
 
-        return addition
+        output_out = self.output(combined)
 
-model = RNN(nwords, 64, nfeatures, ntags)
+        return output_out, hidden_state_out
+
+
+# size of hidden state
+n_hidden = 150
+
+model = RNN(nwords, 164, nfeatures, ntags, n_hidden)
 
 print(model)
+
 
 def evaluate(model, data):
     """Evaluate a model on a data set."""
@@ -166,24 +172,24 @@ def evaluate(model, data):
         img_id = data[i][2]
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
-        last_output = np.ndarray.tolist(np.zeros((1, ntags)))
-        last_output = Variable(torch.FloatTensor(last_output))
+        hidden_state = np.ndarray.tolist(np.zeros((1, n_hidden)))
+        hidden_state = Variable(torch.cuda.FloatTensor(hidden_state))
         for j in range(len(question)):
             input_j_word = question[j]
             # forward pass
-            question_tensor = Variable(torch.LongTensor([input_j_word]))
-            image_features_tensor = Variable(torch.FloatTensor([image]))
-            scores = model(question_tensor, image_features_tensor, last_output)
+            question_tensor = Variable(torch.cuda.LongTensor([input_j_word]))
+            image_features_tensor = Variable(torch.cuda.FloatTensor([image]))
+            scores, hidden_state = model(question_tensor, image_features_tensor, hidden_state)
             last_output = scores
 
         loss = nn.CrossEntropyLoss()
-        target = Variable(torch.LongTensor([answer]))
+        target = Variable(torch.cuda.LongTensor([answer]))
 
         output = loss(last_output, target)
         test_loss += output.data[0]
 
         # measure accuracy of prediction
-        predict = last_output.data.numpy().argmax(axis=1)[0]
+        predict = last_output.data.cpu().numpy().argmax(axis=1)[0]
         predict_answers.append(predict)
         if predict == answer:
             correct += 1
@@ -195,13 +201,30 @@ def evaluate(model, data):
 
 # different layers must use different learning rates
 # optimizer = optim.Adam(model.parameters(), lr = 0.0001)
-optimizer = optim.Adam([
-    {'params': model.embedding.parameters(), 'lr': 0.001},
-    {'params': model.embedding_output.parameters(), 'lr': 0.00001}
-    , {'params': model.img_output.parameters(), 'lr': 0.00001}])
+optimizer = optim.SGD([
+    {'params': model.embedding.parameters(), 'lr': 0.1},
+    {'params': model.output.parameters(), 'lr': 0.00005} ])
+
+# met [0.001, 0.0001] wordt hij eerste 3 iteraties beter, daarna overfit
+# met [0.0001, 0,00001] meteen overfit
+# met [0.0001, 0.000001] Goede start (5 unique correct, 83 answers) maar dan converged hij naar (2,2), vanaf iter 7 lijkt hij te gaan overfitten (niet gewacht)
+# met [0.0001, 0.0000001] (waarom niet) begint met: (1,227) (1,211) (1,202)
+# met [0.0001, 0.0000005] (idee: combinatie tussen diversiteit en strijdkracht uit vorige twee) (2,172) (3,106) (3,47) (2,16) diversiteit gaat te snel verloren
+# met [0.001, 0.0000005] (idee: meer strijdkracht)(2, 146)(3, 108)(3,43)
+# met [0.01, 0.0000005] (1, 171) (4, 105) (3,40) (2,19)
+# met [0.0001, 0.0000005] (1, 171) (4, 105) (3,40) (2,19)
+# met [0.000001, 0.00000005] (1, 229) (1, 219) (1,207) ..
+# met SGD [0.000001, 0.00000005] (1, 235) (1, 235)
+# met SGD [0.00001, 0.0000005] (1, 235) (1, 235)
+# met SGD [0.00001, 0.000005] (iets meer beslis power) (1,235)(1,235) echt, niet per ongeluk kopie
+# met SGD [0.0001, 0.00005] (meer beslis power) (2,2)
+# met SGD [0.0001, 0.000005] (iets minder beslis power) (1, 235)(3,226)(2,113)(2,11)(2,2)(2,2)(2,2)(2,2)(2,2)(2,2)
+# met SGD [0.001, 0.0005] uit dat loakel optimum komen (2,2)(2,2)
+# met SGD [0.1, 0.0005] uit dat loakel optimum komen (2,2)(2,2)
+# met SGD [0.1, 0.00005] uit dat loakel optimum komen
 
 
-minibatch_size = 60
+minibatch_size = 10
 # Number of epochs
 epochs = 40
 # # after which number of epochs we want a evaluation:
@@ -232,19 +255,19 @@ for ITER in range(epochs):
         # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
         images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
-        last_output = np.ndarray.tolist(np.zeros((len(input_questions), ntags)))
-        last_output = Variable(torch.FloatTensor(last_output))
+        hidden_state = np.ndarray.tolist(np.zeros((len(input_questions), n_hidden)))
+        hidden_state = Variable(torch.cuda.FloatTensor(hidden_state))
         for j in range(len(input_questions[0])):
             input_j_words = np.ndarray.tolist(input_questions[:, j])
 
             # forward pass
-            question_tensor = Variable(torch.LongTensor(input_j_words))
-            image_features_tensor = Variable(torch.FloatTensor(images_input))
-            scores = model(question_tensor, image_features_tensor, last_output)
+            question_tensor = Variable(torch.cuda.LongTensor(input_j_words))
+            image_features_tensor = Variable(torch.cuda.FloatTensor(images_input))
+            scores, hidden_state = model(question_tensor, image_features_tensor, hidden_state)
             last_output = scores
 
         loss = nn.CrossEntropyLoss()
-        target = Variable(torch.LongTensor(input_targets))
+        target = Variable(torch.cuda.LongTensor(input_targets))
 
         output = loss(last_output, target)
         train_loss += output.data[0]
@@ -270,7 +293,9 @@ for ITER in range(epochs):
         print("Unique predict answers", predict_answers)
     path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + '.pt'
     torch.save(model.state_dict(), path)
-
+    path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER)
+    np.save(path + '_valid.npy', learning_validation)
+    np.save(path + '_train.npy', learning_train)
 
 plt.close('all')
 f, axarr = plt.subplots(3, sharex=True)
