@@ -78,12 +78,11 @@ def one_hot_encoding(data):
 
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
-
-training_size = 48000
+training_size = 1000000
 # test_size = len(x_test)
 test_size = 100000000
 # validation test_size
-validation_size = 4000
+validation_size = 100000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -91,22 +90,24 @@ x_validation = x_validation[:validation_size]
 
 x_train = x_train + x_validation
 x_train = x_train[:57024]
-
 # for ease, separate the data
+
+# validation
+
+img_ids_validation = [x[0] for x in x_validation]
+questions_validation = [x[1] for x in x_validation]
 # training
+answers_train = y_train
 answers_validation = y_validation
-answers_train = y_train[:training_size]
-
-
 answers_train = answers_train + answers_validation
-answers_train = answers_train[:57024]
-
+answers_train = answers_train [:57024]
 img_ids_train = [x[0] for x in x_train]
 questions_train = [x[1] for x in x_train]
 # make every question evenly long
 question_train_equal=[]
 q_length = []
 length_longest_question = len(max(questions_train, key = len))+1
+
 
 for question in questions_train:
     length = len(question)
@@ -118,16 +119,11 @@ for question in questions_train:
 nwords += 1
 questions_train = question_train_equal
 
-
 # test
 answers_test = y_test[:test_size]
 img_ids_test = [x[0] for x in x_test]
 questions_test = [x[1] for x in x_test]
 
-# validation
-answers_validation = y_validation
-img_ids_validation = [x[0] for x in x_validation]
-questions_validation = [x[1] for x in x_validation]
 
 # combine questions and answers to [ [question[i], answer[i]], img_id[i]] (for every i)
 training_data = [[questions_train[i], answers_train[i], img_ids_train[i], q_length[i]] for i in range(len(questions_train))]
@@ -136,14 +132,13 @@ training_data = np.asarray(training_data)
 test_data = [[questions_test[i], answers_test[i], img_ids_test[i]] for i in range(len(questions_test))]
 test_data = np.asarray(test_data)
 
-validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
-validation_data = np.asarray(validation_data)
+# validation_data = [[questions_validation[i], answers_validation[i], img_ids_validation[i]] for i in range(len(questions_validation))]
+# validation_data = np.asarray(validation_data)
 
 class RNN(nn.Module):
     def __init__(self, vocab_size, embed_size, img_size, hidden_size, num_layers, num_classes):
         super(RNN, self).__init__()
         self.relu = nn.ReLU()
-
         self.embed = nn.Embedding(vocab_size, embed_size)
 
         self.hidden_size = hidden_size
@@ -159,31 +154,13 @@ class RNN(nn.Module):
         self.img_output = nn.Linear(img_size, num_classes)
 
     def forward(self, x, image, batch_size, hidden, q_length):
-
-        #embed word vectors
         embedded = self.embed(x)
-
-        # Forward propagate RNN
         out, _ = self.lstm(embedded)
-
-        #image to 5176
-        # image_out = self.img_output(image)
-        # Decode hidden state of last time step
         out = torch.gather(out, 1, q_length.view(-1,1,1).expand(batch_size,1,hidden))
-
         concat = torch.cat((image, out[:, -1, :]), 1)
-
         image_with_hidden = self.concat(concat)
-
         image_with_hidden = self.relu(image_with_hidden)
-
-        # Decode hidden state of last time step
         out = self.fc(image_with_hidden)
-        #concatenate hidden state and image
-        # out = torch.cat((out,image_out),1)
-
-        # out = self.fc(out)
-
         return out
 
 
@@ -264,11 +241,6 @@ for comb in COMBI:
 
 
     for ITER in range(epochs):
-        # if (ITER == 3 ):
-        #     optimizer = optim.Adam([
-        #         {'params': model.embed.parameters()     , 'lr': comb[0]},
-        #         {'params': model.fc.parameters()        , 'lr': 0.0001},
-        #         {'params': model.img_output.parameters(), 'lr': 0.0001}])
         train_loss = 0.0
         start = time.time()
         batches_count = 0
