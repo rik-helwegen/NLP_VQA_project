@@ -79,7 +79,7 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = len(x_train)
+training_size = 6400
 # test_size = len(x_test)
 test_size = 100
 # validation test_size
@@ -97,15 +97,19 @@ questions_train = [x[1] for x in x_train]
 
 # make every question evenly long
 question_train_equal=[]
-length_longest_question = len(max(questions_train, key = len))
+q_length = []
+length_longest_question = len(max(questions_train, key = len))+1
+
 for question in questions_train:
     length = len(question)
+    q_length.append(length-1)
     for i in range(length_longest_question-length):
         question.append(nwords)
     question_train_equal.append(question)
 # print(question_train_equal)
 nwords += 1
 questions_train = question_train_equal
+
 
 # test
 answers_test = y_test[:test_size]
@@ -118,7 +122,7 @@ img_ids_validation = [x[0] for x in x_validation]
 questions_validation = [x[1] for x in x_validation]
 
 # combine questions and answers to [ [question[i], answer[i]], img_id[i]] (for every i)
-training_data = [[questions_train[i], answers_train[i], img_ids_train[i]] for i in range(len(questions_train))]
+training_data = [[questions_train[i], answers_train[i], img_ids_train[i], q_length[i]] for i in range(len(questions_train))]
 training_data = np.asarray(training_data)
 
 test_data = [[questions_test[i], answers_test[i], img_ids_test[i]] for i in range(len(questions_test))]
@@ -131,35 +135,52 @@ class RNN(nn.Module):
     def __init__(self, vocab_size, embed_size, img_size, hidden_size, num_layers, num_classes):
         super(RNN, self).__init__()
         self.relu = nn.ReLU()
-        self.embed = nn.Embedding(vocab_size, embed_size, padding_idx=nwords-1)
+
+        self.embed = nn.Embedding(vocab_size, embed_size)
+
         self.hidden_size = hidden_size
+
         self.num_layers = num_layers
+
         self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
+
         self.concat = nn.Linear(hidden_size + img_size, hidden_size)
+
         self.fc = nn.Linear(hidden_size, num_classes)
+
         self.img_output = nn.Linear(img_size, num_classes)
 
-    def forward(self, x, image):
-        x = self.embed(x)
+    def forward(self, x, image, batch_size, hidden, q_length):
+
+        #embed word vectors
+        embedded = self.embed(x)
 
         # Forward propagate RNN
-        out, _ = self.lstm(x)
+        out, _ = self.lstm(embedded)
 
-        # concat images (added by Sierk, not sure if this is correct, but this was what tim suggested, I think)
-        # concat = torch.cat((image, out[:, -1, :]), 1)
-        # image_with_hidden = self.concat(concat)
-        # image_with_hidden = self.relu(image_with_hidden)
+        #image to 5176
+        # image_out = self.img_output(image)
+        # Decode hidden state of last time step
+        out = torch.gather(out, 1, q_length.view(-1,1,1).expand(batch_size,1,hidden))
+
+        concat = torch.cat((image, out[:, -1, :]), 1)
+
+        image_with_hidden = self.concat(concat)
+
+        image_with_hidden = self.relu(image_with_hidden)
 
         # Decode hidden state of last time step
-        image_out = self.img_output(image)
-        out = self.fc(out[:,-1,:])
-        out = torch.cat((out,image_out),1)
+        out = self.fc(image_with_hidden)
+        #concatenate hidden state and image
+        # out = torch.cat((out,image_out),1)
+
+        # out = self.fc(out)
 
         return out
 
-model = RNN(nwords, 64, nfeatures, 100, 1, ntags)
 
-print(model)
+
+# print(model)
 
 def evaluate(model, data):
     """Evaluate a model on a data set."""
@@ -173,12 +194,14 @@ def evaluate(model, data):
         question = data[i][0]
         answer = data[i][1]
         img_id = data[i][2]
+        input_q_length = Variable(torch.LongTensor([len(question)-1]))
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
         # forward pass
         question_tensor = Variable(torch.LongTensor([question]))
         image_features_tensor = Variable(torch.FloatTensor([image]))
-        scores = model(question_tensor, image_features_tensor)
+        scores = model(question_tensor, image_features_tensor, 1, hidden_size, input_q_length)
+        scores =  scores.view(1,-1)
         # last_output = scores
 
         loss = nn.CrossEntropyLoss()
@@ -197,18 +220,9 @@ def evaluate(model, data):
     avg_test_loss = test_loss/len(data)
     return accuracy, avg_test_loss, len(set(correct_answers)), len(set(predict_answers))
 
-# different layers must use different learning rates
-# optimizer = optim.Adam(model.parameters(), lr = 0.0001)
-optimizer = optim.Adam([
-    {'params': model.embed.parameters(), 'lr': 0.001},
-    {'params': model.fc.parameters(), 'lr': 0.001},
-    {'params': model.img_output.parameters(), 'lr': 0.0001}])
-    # , {'params': model.img_output.parameters(), 'lr': 0.000001}])
 
-
-minibatch_size = 60
 # Number of epochs
-epochs = 30
+epochs = 25
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -216,78 +230,104 @@ learning_train = np.zeros([epochs, 2])
 learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1, 3])
 # learning_validation = np.zeros([int(math.floor((epochs-1)))+1, 3])
 
-print('initial loss')
-acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
-print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
+# print('initial loss')
+# acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
+# print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
+
+COMBI = [[0.01, 0.001],
+         [0.01, 0.0001],
+         [0.001, 0.0001]]
+
+# COMBI = [[0.001, 0.00001],
+#          [0.00001, 0.000001],
+#          [0.00001, 0.0000001]]
+
+minibatch_size = 64
+hidden_size = 128
+embedding_size = 164
+
+for comb in COMBI:
+    model = RNN(nwords, embedding_size, nfeatures, hidden_size, 1, ntags)
+    optimizer = optim.Adam([
+        {'params': model.embed.parameters()     , 'lr': comb[0]},
+        {'params': model.fc.parameters()        , 'lr': comb[1]},
+        {'params': model.img_output.parameters(), 'lr': comb[1]}])
 
 
-for ITER in range(epochs):
-    train_loss = 0.0
-    start = time.time()
-    batches_count = 0
-    np.random.shuffle(training_data)
-    # split up data in mini-batches
-    for i in range(0, training_data.shape[0], minibatch_size):
-        batches_count += 1
-        batch = training_data[i:i + minibatch_size]
-        input_questions = [x[0] for x in batch]
-        input_targets = [x[1] for x in batch]
-        input_img_ids = [x[2] for x in batch]
-        input_questions = np.asarray(input_questions)
+    for ITER in range(epochs):
+        train_loss = 0.0
+        start = time.time()
+        batches_count = 0
+        np.random.shuffle(training_data)
+        # split up data in mini-batches
+        for i in range(0, training_data.shape[0], minibatch_size):
+            batches_count += 1
+            batch = training_data[i:i + minibatch_size]
+            input_questions = [x[0] for x in batch]
+            input_targets = [x[1] for x in batch]
+            input_img_ids = [x[2] for x in batch]
+            input_q_length = Variable(torch.LongTensor([x[3] for x in batch]))
 
-        # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
-        images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
+            input_questions = np.asarray(input_questions)
 
-        # forward pass
-        question_tensor = Variable(torch.LongTensor(input_questions))
-        image_features_tensor = Variable(torch.FloatTensor(images_input))
-        scores = model(question_tensor, image_features_tensor)
+            # make a batch of image features by using corresponding img_id, and transforms them to a list (needed for FloatTensor)
+            images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
-        loss = nn.CrossEntropyLoss()
-        target = Variable(torch.LongTensor(input_targets))
+            # forward pass
+            question_tensor = Variable(torch.LongTensor(input_questions))
+            image_features_tensor = Variable(torch.FloatTensor(images_input))
 
-        output = loss(scores, target)
-        train_loss += output.data[0]
+            scores = model(question_tensor, image_features_tensor, len(batch), hidden_size, input_q_length)
 
-        # backward pass
-        model.zero_grad()
-        output.backward()
+            loss = nn.CrossEntropyLoss()
 
-        # update weights
-        optimizer.step()
+            target = Variable(torch.LongTensor(input_targets))
 
-    # training progress
-    print("iter %r: train loss/sent %.6f, time=%.2fs" %
-          (ITER, train_loss/batches_count, time.time() - start))
-    learning_train[ITER, :] = [ITER, train_loss/batches_count]
+            scores =  scores.view(minibatch_size,-1)
 
-    # testing progress
-    if ITER % validation_update == 0:
-        acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
-        print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
-        learning_validation[ITER, :] = [ITER, avg_loss, acc]
-        print("Unique correct answers", correct_answers)
-        print("Unique predict answers", predict_answers)
-    path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + '.pt'
-    torch.save(model.state_dict(), path)
+            output = loss(scores, target)
+
+            train_loss += output.data[0]
+
+            # backward pass
+            model.zero_grad()
+            output.backward()
+
+            # update weights
+            optimizer.step()
+
+        # training progress
+        print("iter %r: train loss/sent %.6f, time=%.2fs" %
+              (ITER, train_loss/batches_count, time.time() - start))
+        learning_train[ITER, :] = [ITER, train_loss/batches_count]
+
+        # testing progress
+        if ITER % validation_update == 0:
+            acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
+            print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
+            learning_validation[ITER, :] = [ITER, avg_loss, acc]
+            print("Unique correct answers", correct_answers)
+            print("Unique predict answers", predict_answers)
+        # path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + "COMBI" + str(COMBI.index(comb)) + '.pt'
+        # torch.save(model.state_dict(), path)
+
 
     # save data
     path = './hyper_parameter_tuning/RNN_ITER_%i' % (ITER)
-    np.save(path + '_valid.npy', learning_validation)
-    np.save(path + '_train.npy', learning_train)
+    np.save(path + "COMBI" + str(COMBI.index(comb)) + '_valid.npy', learning_validation)
+    np.save(path + "COMBI" + str(COMBI.index(comb)) + '_train.npy', learning_train)
 
+    plt.close('all')
+    f, axarr = plt.subplots(3, sharex=True)
+    axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
+    axarr[0].legend()
+    axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
+    axarr[1].legend()
+    axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Accuracy')
+    axarr[2].legend()
+    axarr[2].set_xlabel('Iterations')
+    # plt.show()
 
-plt.close('all')
-f, axarr = plt.subplots(3, sharex=True)
-axarr[0].plot(learning_train[:, 0], learning_train[:, 1], label='Average-train-loss')
-axarr[0].legend()
-axarr[1].plot(learning_validation[:, 0], learning_validation[:, 1], label='Average-validation-loss')
-axarr[1].legend()
-axarr[2].plot(learning_validation[:, 0], learning_validation[:, 2], 'r-', label='Accuracy')
-axarr[2].legend()
-axarr[2].set_xlabel('Iterations')
-plt.show()
-
-path = './hyper_parameter_tuning/RNN'
-f.savefig(path + '.png',  bbox_inches='tight')
-plt.close('all')
+    path = './hyper_parameter_tuning/RNN'
+    f.savefig(path + "COMBI" + str(COMBI.index(comb)) + '.png',  bbox_inches='tight')
+    plt.close('all')
