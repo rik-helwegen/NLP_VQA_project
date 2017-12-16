@@ -78,10 +78,9 @@ def one_hot_encoding(data):
 
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
-
-training_size = 6400
+training_size = 48000
 # test_size = len(x_test)
-test_size = 100
+test_size = 100000
 # validation test_size
 validation_size = 1000
 
@@ -222,7 +221,7 @@ def evaluate(model, data):
 
 
 # Number of epochs
-epochs = 25
+epochs = 50
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -234,9 +233,7 @@ learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1,
 # acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
 # print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
-COMBI = [[0.01, 0.001],
-         [0.01, 0.0001],
-         [0.001, 0.0001]]
+COMBI = [[0.01, 0.001]]
 
 # COMBI = [[0.001, 0.00001],
 #          [0.00001, 0.000001],
@@ -255,6 +252,11 @@ for comb in COMBI:
 
 
     for ITER in range(epochs):
+        if (ITER == 3 ):
+            optimizer = optim.Adam([
+                {'params': model.embed.parameters()     , 'lr': comb[0]},
+                {'params': model.fc.parameters()        , 'lr': 0.0001},
+                {'params': model.img_output.parameters(), 'lr': 0.0001}])
         train_loss = 0.0
         start = time.time()
         batches_count = 0
@@ -303,13 +305,13 @@ for comb in COMBI:
 
         # testing progress
         if ITER % validation_update == 0:
-            acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
+            acc, avg_loss, correct_answers, predict_answers = evaluate(model, test_data)
             print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
             learning_validation[ITER, :] = [ITER, avg_loss, acc]
             print("Unique correct answers", correct_answers)
             print("Unique predict answers", predict_answers)
-        # path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + "COMBI" + str(COMBI.index(comb)) + '.pt'
-        # torch.save(model.state_dict(), path)
+        path = './hyper_parameter_tuning/' + 'RNN_ITER_%i' % (ITER) + "COMBI" + str(COMBI.index(comb)) + '.pt'
+        torch.save(model.state_dict(), path)
 
 
     # save data
