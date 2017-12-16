@@ -89,12 +89,20 @@ x_train = x_train[:training_size]
 x_test = x_test[:test_size]
 x_validation = x_validation[:validation_size]
 
+x_train = x_train + x_validation
+x_train = x_train[:57024]
+
 # for ease, separate the data
 # training
+answers_validation = y_validation
 answers_train = y_train[:training_size]
+
+
+answers_train = answers_train + answers_validation
+answers_train = answers_train[:57024]
+
 img_ids_train = [x[0] for x in x_train]
 questions_train = [x[1] for x in x_train]
-
 # make every question evenly long
 question_train_equal=[]
 q_length = []
@@ -134,21 +142,21 @@ validation_data = np.asarray(validation_data)
 class RNN(nn.Module):
     def __init__(self, vocab_size, embed_size, img_size, hidden_size, num_layers, num_classes):
         super(RNN, self).__init__()
-        self.relu = nn.ReLU().cuda()
+        self.relu = nn.ReLU()
 
-        self.embed = nn.Embedding(vocab_size, embed_size).cuda()
+        self.embed = nn.Embedding(vocab_size, embed_size)
 
         self.hidden_size = hidden_size
 
         self.num_layers = num_layers
 
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True).cuda()
+        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
 
-        self.concat = nn.Linear(hidden_size + img_size, hidden_size).cuda()
+        self.concat = nn.Linear(hidden_size + img_size, hidden_size)
 
-        self.fc = nn.Linear(hidden_size, num_classes).cuda()
+        self.fc = nn.Linear(hidden_size, num_classes)
 
-        self.img_output = nn.Linear(img_size, num_classes).cuda()
+        self.img_output = nn.Linear(img_size, num_classes)
 
     def forward(self, x, image, batch_size, hidden, q_length):
 
@@ -194,18 +202,18 @@ def evaluate(model, data):
         question = data[i][0]
         answer = data[i][1]
         img_id = data[i][2]
-        input_q_length = Variable(torch.cuda.LongTensor([len(question)-1]))
+        input_q_length = Variable(torch .LongTensor([len(question)-1]))
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
         # forward pass
-        question_tensor = Variable(torch.cuda.LongTensor([question]))
-        image_features_tensor = Variable(torch.cuda.FloatTensor([image]))
+        question_tensor = Variable(torch .LongTensor([question]))
+        image_features_tensor = Variable(torch .FloatTensor([image]))
         scores = model(question_tensor, image_features_tensor, 1, hidden_size, input_q_length)
         scores =  scores.view(1,-1)
         # last_output = scores
 
         loss = nn.CrossEntropyLoss()
-        target = Variable(torch.cuda.LongTensor([answer]))
+        target = Variable(torch .LongTensor([answer]))
         output = loss(scores, target)
         test_loss += output.data[0]
 
@@ -256,11 +264,11 @@ for comb in COMBI:
 
 
     for ITER in range(epochs):
-        if (ITER == 3 ):
-            optimizer = optim.Adam([
-                {'params': model.embed.parameters()     , 'lr': comb[0]},
-                {'params': model.fc.parameters()        , 'lr': 0.0001},
-                {'params': model.img_output.parameters(), 'lr': 0.0001}])
+        # if (ITER == 3 ):
+        #     optimizer = optim.Adam([
+        #         {'params': model.embed.parameters()     , 'lr': comb[0]},
+        #         {'params': model.fc.parameters()        , 'lr': 0.0001},
+        #         {'params': model.img_output.parameters(), 'lr': 0.0001}])
         train_loss = 0.0
         start = time.time()
         batches_count = 0
@@ -272,7 +280,7 @@ for comb in COMBI:
             input_questions = [x[0] for x in batch]
             input_targets = [x[1] for x in batch]
             input_img_ids = [x[2] for x in batch]
-            input_q_length = Variable(torch.cuda.LongTensor([x[3] for x in batch]))
+            input_q_length = Variable(torch .LongTensor([x[3] for x in batch]))
 
             input_questions = np.asarray(input_questions)
 
@@ -280,14 +288,14 @@ for comb in COMBI:
             images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
             # forward pass
-            question_tensor = Variable(torch.cuda.LongTensor(input_questions))
-            image_features_tensor = Variable(torch.cuda.FloatTensor(images_input))
+            question_tensor = Variable(torch .LongTensor(input_questions))
+            image_features_tensor = Variable(torch .FloatTensor(images_input))
 
             scores = model(question_tensor, image_features_tensor, len(batch), hidden_size, input_q_length)
 
             loss = nn.CrossEntropyLoss()
 
-            target = Variable(torch.cuda.LongTensor(input_targets))
+            target = Variable(torch .LongTensor(input_targets))
 
             scores =  scores.view(minibatch_size,-1)
 
