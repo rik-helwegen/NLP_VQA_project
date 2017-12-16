@@ -79,11 +79,11 @@ def one_hot_encoding(data):
 # to speed-up training, max = len(x_train)
 # training_size = len(x_train)
 
-training_size = 6400
+training_size = 48000
 # test_size = len(x_test)
-test_size = 100
+test_size = 100000000
 # validation test_size
-validation_size = 1000
+validation_size = 4000
 
 x_train = x_train[:training_size]
 x_test = x_test[:test_size]
@@ -134,21 +134,21 @@ validation_data = np.asarray(validation_data)
 class RNN(nn.Module):
     def __init__(self, vocab_size, embed_size, img_size, hidden_size, num_layers, num_classes):
         super(RNN, self).__init__()
-        self.relu = nn.ReLU()
+        self.relu = nn.ReLU().cuda()
 
-        self.embed = nn.Embedding(vocab_size, embed_size)
+        self.embed = nn.Embedding(vocab_size, embed_size).cuda()
 
         self.hidden_size = hidden_size
 
         self.num_layers = num_layers
 
-        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True)
+        self.lstm = nn.LSTM(embed_size, hidden_size, num_layers, batch_first=True).cuda()
 
-        self.concat = nn.Linear(hidden_size + img_size, hidden_size)
+        self.concat = nn.Linear(hidden_size + img_size, hidden_size).cuda()
 
-        self.fc = nn.Linear(hidden_size, num_classes)
+        self.fc = nn.Linear(hidden_size, num_classes).cuda()
 
-        self.img_output = nn.Linear(img_size, num_classes)
+        self.img_output = nn.Linear(img_size, num_classes).cuda()
 
     def forward(self, x, image, batch_size, hidden, q_length):
 
@@ -194,18 +194,18 @@ def evaluate(model, data):
         question = data[i][0]
         answer = data[i][1]
         img_id = data[i][2]
-        input_q_length = Variable(torch.LongTensor([len(question)-1]))
+        input_q_length = Variable(torch.cuda.LongTensor([len(question)-1]))
         image = np.ndarray.tolist(img_features[visual_feat_mapping[str(img_id)]])
 
         # forward pass
-        question_tensor = Variable(torch.LongTensor([question]))
-        image_features_tensor = Variable(torch.FloatTensor([image]))
+        question_tensor = Variable(torch.cuda.LongTensor([question]))
+        image_features_tensor = Variable(torch.cuda.FloatTensor([image]))
         scores = model(question_tensor, image_features_tensor, 1, hidden_size, input_q_length)
         scores =  scores.view(1,-1)
         # last_output = scores
 
         loss = nn.CrossEntropyLoss()
-        target = Variable(torch.LongTensor([answer]))
+        target = Variable(torch.cuda.LongTensor([answer]))
         output = loss(scores, target)
         test_loss += output.data[0]
 
@@ -222,7 +222,7 @@ def evaluate(model, data):
 
 
 # Number of epochs
-epochs = 25
+epochs = 100
 # # after which number of epochs we want a evaluation:
 validation_update = 1
 # create zero vectors to save progress
@@ -234,13 +234,16 @@ learning_validation = np.zeros([int(math.floor((epochs-1)/validation_update))+1,
 # acc, avg_loss, predict_answers, correct_answers = evaluate(model, validation_data)
 # print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (0, avg_loss, acc))
 
-COMBI = [[0.01, 0.001],
-         [0.01, 0.0001],
-         [0.001, 0.0001]]
+# COMBI = [[0.01, 0.001],
+#          [0.01, 0.0001],
+#          [0.001, 0.0001]]
 
+# ALREADY DONE:
 # COMBI = [[0.001, 0.00001],
-#          [0.00001, 0.000001],
-#          [0.00001, 0.0000001]]
+#          [0.001, 0.0001],
+#          [0.001, 0.001]]
+
+COMBI = [[0.01, 0.001]]
 
 minibatch_size = 64
 hidden_size = 128
@@ -259,6 +262,11 @@ for comb in COMBI:
         start = time.time()
         batches_count = 0
         np.random.shuffle(training_data)
+        if ITER == 5:
+            optimizer = optim.Adam([
+                {'params': model.embed.parameters()     , 'lr': 0.01},
+                {'params': model.fc.parameters()        , 'lr': 0.0001},
+                {'params': model.img_output.parameters(), 'lr': 0.0001}])
         # split up data in mini-batches
         for i in range(0, training_data.shape[0], minibatch_size):
             batches_count += 1
@@ -266,7 +274,7 @@ for comb in COMBI:
             input_questions = [x[0] for x in batch]
             input_targets = [x[1] for x in batch]
             input_img_ids = [x[2] for x in batch]
-            input_q_length = Variable(torch.LongTensor([x[3] for x in batch]))
+            input_q_length = Variable(torch.cuda.LongTensor([x[3] for x in batch]))
 
             input_questions = np.asarray(input_questions)
 
@@ -274,14 +282,14 @@ for comb in COMBI:
             images_input = [np.ndarray.tolist(img_features[visual_feat_mapping[str(i)]]) for i in input_img_ids]
 
             # forward pass
-            question_tensor = Variable(torch.LongTensor(input_questions))
-            image_features_tensor = Variable(torch.FloatTensor(images_input))
+            question_tensor = Variable(torch.cuda.LongTensor(input_questions))
+            image_features_tensor = Variable(torch.cuda.FloatTensor(images_input))
 
             scores = model(question_tensor, image_features_tensor, len(batch), hidden_size, input_q_length)
 
             loss = nn.CrossEntropyLoss()
 
-            target = Variable(torch.LongTensor(input_targets))
+            target = Variable(torch.cuda.LongTensor(input_targets))
 
             scores =  scores.view(minibatch_size,-1)
 
@@ -303,7 +311,7 @@ for comb in COMBI:
 
         # testing progress
         if ITER % validation_update == 0:
-            acc, avg_loss, correct_answers, predict_answers = evaluate(model, validation_data)
+            acc, avg_loss, correct_answers, predict_answers = evaluate(model, test_data)
             print("iter %r: validation loss/sent %.6f, accuracy=%.6f" % (ITER, avg_loss, acc))
             learning_validation[ITER, :] = [ITER, avg_loss, acc]
             print("Unique correct answers", correct_answers)
